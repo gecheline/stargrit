@@ -1,0 +1,77 @@
+# RadiativeTransfer
+
+ - rot_theta(theta)
+ - compute_transformation_matrix(normal)
+ - rotate_direction_wrt_normal(Mc, coords, R)
+
+ - compute_initial_Is(self)
+ - compute_blackbody_interpolation(self, directory, component='') 
+ - compute_radiative_transfer
+
+# DiffrotStarRadiativeTransfer
+
+ - compute_potentials(self, points, bbT, pot_range_grid)
+ - compute_coords_for_interpolation(self, points, **kwargs)
+ - compute_interp_regions
+
+# ContactBinaryRadiativeTransfer
+
+ - compute_potentials(self, points, q, bbT1, bbT2, pot_range_grid)
+
+ - compute_initial_Is(self)
+ - normalize_xs(xs, pots, q)
+ - compute_interp_regions(self, pots, points, pot_range_grid, geometry='cylindrical')
+ - compute_coords_for_interpolation(self, points, geometry='cylindrical', **kwargs)
+
+
+
+# GrayRadiativeTransfer
+
+ - adjust_stepsize(self, Mc, ndir, dirarg, **kwargs)
+ - compute_mesh_interpolation(self, directory, mesh, component='', iter_n=1)
+ - compute_interpolation_functions(self, iter_n=1)
+
+ - compute_solution(self, Mc, ndir, dirarg, stepsize, **kwargs)
+ - compute_integral(self, paths, chis, Ss, Is, spline_order=1)
+ - compute_intensity(self, Mc, n, dirarg, coords, **kwargs)
+
+
+# DiffrotStarGrayRadiativeTransfer
+ - compute_structure(self, points, dirarg, interp_funcs, stepsize=False)
+
+
+
+# ContactBinaryGrayRadiativeTransfer
+ - compute_structure(self, points, dirarg, interp_funcs, stepsize=False)
+
+
+
+# MonochromaticRadiativeTransfer
+
+ - trilinear_interp_monochromatic(self, points, grid, f)
+ - compute_grid_interpolation_indices(mesh, points)
+ 
+ - compute_mesh_interpolation(self, directory, mesh, component='', iter_n=1)
+ - compute_interpolation_functions(self, iter_n=1)
+
+ - adjust_stepsize(self, Mc, ndir, dirarg, **kwargs)
+ - compute_solution(self, Mc, ndir, dirarg, stepsize, **kwargs)
+ - compute_integral(self, paths, chis, Ss, Is, spline_order=1)
+ - compute_intensity(self, Mc, n, dirarg, coords, **kwargs)
+
+
+
+# DiffrotStarMonochromaticRadiativeTransfer
+ - compute_structure(self, points, dirarg, interp_funcs, stepsize=False)
+
+
+
+# ContactBinaryMonochromaticRadiativeTransfer
+ - compute_structure(self, points, dirarg, interp_funcs, stepsize=False)
+ - compute_interpolation_functions(self, iter_n=1)
+
+
+
+
+
+
