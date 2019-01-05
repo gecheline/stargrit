@@ -13,7 +13,7 @@ class RadiativeTransfer(object):
 
         if hasattr(quadsph, quadrature.title()):
             quadfunc = getattr(quadsph, quadrature.title())
-            self._quadrature = quadfunc(ndir)
+            self._quadrature = quadfunc(str(ndir))
             self._quadrature.nI = len(self._quadrature.weights)
             # thetas and phis are in quadrature.azimuthal_polar ([:,0] is phi, [:,1] is theta) 
 
@@ -229,7 +229,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             super(ContactBinaryRadiativeTransfer,self).compute_initial_Is()
         
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
 
 
     def compute_interpolation_functions(self, iter_n=1):
@@ -254,7 +254,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
                       'chi': chi_interp, 'J':J_interp, 'I': I_interp}
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
     
 
     @staticmethod
@@ -294,7 +294,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             
             return grid_prim, grid_sec, le_prim, le_sec
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % geometry)
     
 
     def compute_coords_for_interpolation(self, points, geometry='cylindrical', **kwargs):
@@ -335,4 +335,4 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             return thetas, phis
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % geometry)

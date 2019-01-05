@@ -189,8 +189,8 @@ class DiffrotStarPolytrope(Polytrope):
             rhos_pots = self._le['rhoc'] * theta_pots ** self._n
             pots_inds = points//(mesh._dims[1]*mesh._dims[2])
             
-            np.save(directory+'T_0', Ts_pots[pots_inds].reshape(mesh._dims))
-            np.save(directory+'rho_0', rhos_pots[pots_inds].reshape(mesh._dims))
+            np.save(directory+'T_0', Ts_pots[pots_inds].value.reshape(mesh._dims))
+            np.save(directory+'rho_0', rhos_pots[pots_inds].value.reshape(mesh._dims))
             self.compute_bb(mesh.coords['pots'], theta_interp, directory)
 
     def compute_bb(self, pots, theta_interp, directory):
@@ -433,8 +433,8 @@ class ContactBinaryPolytrope(object):
                 Ts[seccond], rhos[seccond] = Ts2, rhos2
 
                 # save files
-                np.save(directory+'T_0', Ts.value.reshape(mesh._dims))
-                np.save(directory+'rho_0', rhos.value.reshape(mesh._dims))
+                np.save(directory+'T_0', Ts.reshape(mesh._dims))
+                np.save(directory+'rho_0', rhos.reshape(mesh._dims))
 
 
             else:

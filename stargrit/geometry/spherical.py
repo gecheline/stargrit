@@ -25,13 +25,12 @@ class SphericalMesh(object):
         self.coords = {'pots': pots, 'thetas': thetas, 'phis': phis}
 
 
-class StarMesh(SphericalMesh):
+class DiffrotStarMesh(SphericalMesh):
 
-    def __init__(self, dims=[50,100,50], atm_range=0.01, mesh_part='quadratic', **kwargs):
-        self._bs = kwargs.pop('bs')
-        pot = kwargs.pop('pot')
+    def __init__(self, dims=[50,100,50], atm_range=0.01, mesh_part='quadratic', bs=[0.,0.,0.], pot=1.):
+        self._bs = bs
         # self.__scale = scale
-        super(StarMesh,self).__init__(dims=dims, atm_range=atm_range, mesh_part=mesh_part, pot=pot)
+        super(DiffrotStarMesh,self).__init__(dims=dims, atm_range=atm_range, mesh_part=mesh_part, pot=pot)
         
 
     def compute_mesh(self):
@@ -58,8 +57,10 @@ class StarMesh(SphericalMesh):
                     rs[n] = r_cs
                     normals[n] = np.array([nx / nn, ny / nn, nz / nn])
 
+                    n+=1
+
         self.rs = rs#*self.__scale
-        self.normals = normals
+        self.ns = normals
 
 
 class ContactBinaryMesh(SphericalMesh):
@@ -173,7 +174,7 @@ class ContactBinaryMesh(SphericalMesh):
         normals2[:,0] = -normals2[:,0]
 
         self.rs = np.vstack((rs1, rs2))#*self.__scale
-        self.normals = np.vstack((normals1, normals2))
+        self.ns = np.vstack((normals1, normals2))
         self.compute_mesh_breaks()
 
     

@@ -2,7 +2,6 @@ from stargrit.radiative_transfer.cobain.general import RadiativeTransfer, Diffro
 
 class MonochromaticRadiativeTransfer(RadiativeTransfer):
 
-
     def mesh_interpolation_functions(self, directory, mesh, component='', iter_n=1):
 
         """
@@ -31,7 +30,6 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
             I_interp.append(np.load(directory + 'I_' + str(iter_n - 1) + '_' + str(int(i)) + '%s.npy' % component))
 
         return chi_interp, J_interp, I_interp
-
 
     def trilinear_interp_monochromatic(self, points, grid, f):
 
@@ -102,7 +100,7 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
 
         return [xinds, yinds, zinds]
 
-        def compute_solution(self, Mc, ndir, dirarg, stepsize, **kwargs):
+    def compute_solution(self, Mc, ndir, dirarg, stepsize, **kwargs):
         
         rs = np.array([Mc - i * stepsize * ndir for i in range(self._N)])
         paths = np.array([i * stepsize for i in range(self._N)])
@@ -219,7 +217,6 @@ class DiffrotStarMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer, 
 
 class ContactBinaryMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer, ContactBinaryRadiativeTransfer):
 
-
     def compute_structure(self, points, dirarg, stepsize=False):
         """
         Returns the radiative structure in all points along a ray.
@@ -268,7 +265,7 @@ class ContactBinaryMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer
                 Is[grid] = self._interp_funcs['I'][dirarg](pots, xnorms, thetas)
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
 
         rhos1, rhos2 = self._interp_funcs['bbrho1'](pots[le_prim]), self._interp_funcs['bbrho2'](pots2[le_sec])
         Ts1, Ts2 = self._interp_funcs['bbT1'](pots[le_prim]), self._interp_funcs['bbT2'](pots2[le_sec])

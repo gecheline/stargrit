@@ -14,7 +14,7 @@ implemented_object_types = ['diffrot_star', 'contact_binary']
 implemented_structures = ['polytropes']
 implemented_atmospheres = ['blackbody']
 implemented_geometries = ['cylindrical', 'spherical']
-implemented_rt_methods = ['cobain3d']
+implemented_rt_methods = ['cobain']
 
 class Body(object):
 
@@ -23,7 +23,7 @@ class Body(object):
     Upon creation, checks are performed to ensure that the chosen methods are implemented.
     '''
 
-    def __init__(self, objtype='contact_binary', geometry='cylindrical', structure='polytropes', atmosphere='blackbody', rt_method='cobain3d', directory=os.getcwd()+'/'):
+    def __init__(self, objtype='contact_binary', geometry='cylindrical', structure='polytropes', atmosphere='blackbody', rt_method='cobain', directory=os.getcwd()+'/'):
         
         self.params = {}
         # validate whether top-level parameters within implemented and initialize
@@ -57,7 +57,9 @@ class Body(object):
             raise ValueError('Atmosphere \'%s\' not implemented, must be one of %r' % (atmosphere, implemented_atmospheres))
         
         # set the directory where all of the structure files will be stored
+        print 'Setting directory to %s' % directory
         self.__directory = directory
+        print self.__directory
         # self.pickle(self.directory + 'body')
         
     @property
@@ -81,7 +83,6 @@ class Body(object):
         # does a mesh exist already: can't change geometry
         # if just parametersets, change the PS values (geometry must be spherical, options for structure, etc.)
         # self._geometry = value
-        print "add mesh kwargs", kwargs
 
         new_geometry = kwargs.get('geometry', self.params['geometry'])
         if new_geometry != self.params['geometry']:
@@ -93,6 +94,7 @@ class Body(object):
                     get_geometry_object = getattr(get_geometry, '%s%s' % (self.params['objtype'].title().replace("_",""), 'Mesh'))
                     self._mesh = get_geometry_object(atm_range=atm_range, dims=dims, mesh_part=mesh_part, **kwargs)
                     if compute:
+                        print 'Computing mesh'
                         self._mesh.compute_mesh()
         else:
             raise ValueError('%s geometry not implemented, must be one of %s' % (new_geometry, implemented_geometries))
@@ -112,11 +114,11 @@ class Body(object):
                 if hasattr(get_structure, '%s%s' % (self.params['objtype'].title().replace("_",""),new_structure.title().rstrip('s'))):
                     get_structure_object = getattr(get_structure, '%s%s' % (self.params['objtype'].title().replace("_",""),new_structure.title().rstrip('s')))
                     if self._structure != None:
-                        logging.info('Structure object exists: rewritting not enabled, will keep initial configuration.')
+                        logging.info('Structure object exists: rewriting not enabled, will keep initial configuration.')
                     else:
                         self._structure = get_structure_object(**kwargs)
                     if compute:
-                        self._structure.compute_structure(self._mesh, self.__directory)
+                        self._structure.compute_structure(self._mesh, self.directory)
             else:
                 raise ValueError('Structure %s not implemented, must be one of %s' % (new_structure, implemented_structures))
         
@@ -138,7 +140,7 @@ class Body(object):
                 if hasattr(get_atmosphere, '%s%s' % (self.params['objtype'].title().replace("_",""),'Atmosphere')):
                     get_atmosphere_object = getattr(get_atmosphere, '%s%s' % (self.params['objtype'].title().replace("_",""), 'Atmosphere'))
                     if self._atmosphere != None:
-                        logging.info('Atmosphere object exists: rewritting not enabled, will keep initial configuration.')
+                        logging.info('Atmosphere object exists: rewriting not enabled, will keep initial configuration.')
                     else:
                         self._atmosphere = get_atmosphere_object(self._mesh, self.__directory, **kwargs)
                         if compute==True:
@@ -158,9 +160,9 @@ class Body(object):
                     self.params['rt_method'] = new_rt_method
                 get_rt = getattr(radiative_transfer, '%s' % new_rt_method)
                 if hasattr(get_rt, '%s%s' % (self.params['objtype'].title().replace("_",""),'RadiativeTransfer')):
-                    get_rt_object = getattr(get_rt, '%s%s' % (self.params['objtype'].title().replace("_",""), 'RadiativeTransfer'))
+                    get_rt_object = getattr(get_rt, '%s%s%s' % (self.params['objtype'].title().replace("_",""),self._atmosphere._atm_type.title(), 'RadiativeTransfer'))
                     if self._rt != None:
-                        logging.info('RT object exists: rewritting not enabled, will keep initial configuration.')
+                        logging.info('RT object exists: rewriting not enabled, will keep initial configuration.')
                     else:
                         self._rt = get_rt_object(self._atmosphere, **kwargs)
                         if compute==True:
@@ -198,25 +200,41 @@ class Body(object):
         self.__directory = newdir
 
 
-class Star(Body):
+class DiffrotStar(Body):
 
     def __init__(self, geometry='spherical', structure='polytropes', atmosphere='blackbody', directory=os.getcwd()+'/', kwargs={}):
-        super(Star, self).__init__(objtype='diffrot_star', geometry=geometry, structure=structure,atmosphere=atmosphere, directory=directory)
+        super(DiffrotStar, self).__init__(objtype='diffrot_star', geometry=geometry, structure=structure,atmosphere=atmosphere, directory=directory)
         # preform extra checks if necessary
-        print 'Basic init complete'
         self._mass = kwargs.get('M', 1.0)
         self._radius = kwargs.get('R', 1.0)
         self._teff = kwargs.get('teff', 5777.0)*u.K
 
         # because for Star many of the top-level parameter values depend on the structure
         # a structure object needs to be added in init, without compute
-        print 'Adding structure'
         self.add_structure(compute=False)
-        print 'Computing potential'
         self._pot = self._structure.compute_surface_pot()
 
-    def add_mesh(self, atm_range=0.01, dims = [50,100,50], mesh_part='quarter'):
-        super(Star,self).add_mesh(atm_range=atm_range, dims=dims, mesh_part=mesh_part, pot=self._pot)
+    def add_mesh(self, atm_range=0.01, dims = [50,100,50], mesh_part='quarter',compute=True):
+        super(DiffrotStar,self).add_mesh(atm_range=atm_range, dims=dims, mesh_part=mesh_part, bs=self._structure._bs, pot=self._pot,compute=compute)
+
+    def add_structure(self, compute=False, **kwargs):
+
+        new_structure = kwargs.get('structure', self.params['structure'])
+        if new_structure in implemented_structures:
+            if new_structure != self.params['structure']:
+                self.params['structure'] = new_structure
+            get_structure = getattr(structure, '%s' % new_structure)
+            if hasattr(get_structure, '%s%s' % (self.params['objtype'].title().replace("_",""),new_structure.title().rstrip('s'))):
+                get_structure_object = getattr(get_structure, '%s%s' % (self.params['objtype'].title().replace("_",""),new_structure.title().rstrip('s')))
+                if self._structure != None:
+                    logging.info('Structure object exists: rewriting not enabled, will keep initial configuration.')
+                else:
+                    self._structure = get_structure_object(**kwargs)
+                if compute:
+                    self._structure.compute_structure(self._mesh, self.directory)
+        else:
+            raise ValueError('Structure %s not implemented, must be one of %s' % (new_structure, implemented_structures))
+    
 
         
 class ContactBinary(Body):
@@ -250,8 +268,8 @@ class ContactBinary(Body):
         self._ff = ff
 
 
-    def add_mesh(self, atm_range=0.01, dims = [50,100,50], mesh_part='quarter'):
-        super(ContactBinary, self).add_mesh(atm_range=atm_range, dims=dims, mesh_part=mesh_part, q=self._q, pot=self._pot)
+    def add_mesh(self, atm_range=0.01, dims = [50,100,50], mesh_part='quarter',compute=True):
+        super(ContactBinary, self).add_mesh(atm_range=atm_range, dims=dims, mesh_part=mesh_part, q=self._q, pot=self._pot, compute=compute)
 
     def add_structure(self, **kwargs):
         super(ContactBinary, self).add_structure(pot=self._pot, q=self._q, **kwargs)

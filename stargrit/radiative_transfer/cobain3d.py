@@ -453,7 +453,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             super(ContactBinaryRadiativeTransfer,self).compute_initial_Is()
         
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
 
 
     def compute_interpolation_functions(self, iter_n=1):
@@ -478,7 +478,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
                       'chi': chi_interp, 'J':J_interp, 'I': I_interp}
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
     
 
     def compute_potentials(self, points, q, bbT1, bbT2, pot_range_grid):
@@ -531,7 +531,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             
             return grid_prim, grid_sec, le_prim, le_sec
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % geometry)
     
 
     def compute_coords_for_interpolation(self, points, geometry='cylindrical', **kwargs):
@@ -572,7 +572,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             return thetas, phis
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % geometry)
 
 
     def compute_structure(self, points, dirarg, interp_funcs, stepsize=False):
@@ -623,7 +623,7 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
                 Is[grid] = interp_funcs['I'][dirarg](pots, xnorms, thetas)
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
 
         rhos1, rhos2 = interp_funcs['bbrho1'](pots[le_prim]), interp_funcs['bbrho2'](pots2[le_sec])
         Ts1, Ts2 = interp_funcs['bbT1'](pots[le_prim]), interp_funcs['bbT2'](pots2[le_sec])

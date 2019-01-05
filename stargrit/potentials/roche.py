@@ -46,15 +46,17 @@ def BinaryRoche_cylindrical(r,q,x,theta):
     return 1. / np.sqrt(x ** 2 + r ** 2) + q * (1. / np.sqrt((x - 1) ** 2 + r ** 2) - x) + 0.5 * (q + 1.) * (x ** 2 + r ** 2 * (np.sin(theta))**2)
 
 def BinaryRoche_cartesian(r,q,D=1.,F=1.):
-    if isinstance(r, (list, tuple, np.ndarray)):
-        return 1.0 / np.sqrt(r[:,0] * r[:,0] + r[:,1] * r[:,1] + r[:,2] * r[:,2]) + q * (
-    1.0 / np.sqrt((r[:,0] - D) * (r[:,0] - D) + r[:,1] * r[:,1] + r[:,2] * r[:,2]) - r[:,0] / D / D) + 0.5 * F * F * (1 + q) * (
-    r[:,0] * r[:,0] + r[:,1] * r[:,1])
-   
-    else:
+    
+    if len(list(r.shape))==1:
         return 1.0 / np.sqrt(r[0] * r[0] + r[1] * r[1] + r[2] * r[2]) + q * (
     1.0 / np.sqrt((r[0] - D) * (r[0] - D) + r[1] * r[1] + r[2] * r[2]) - r[0] / D / D) + 0.5 * F * F * (1 + q) * (
     r[0] * r[0] + r[1] * r[1])
+        
+    else:
+        return 1.0 / np.sqrt(r[:,0] * r[:,0] + r[:,1] * r[:,1] + r[:,2] * r[:,2]) + q * (
+    1.0 / np.sqrt((r[:,0] - D) * (r[:,0] - D) + r[:,1] * r[:,1] + r[:,2] * r[:,2]) - r[:,0] / D / D) + 0.5 * F * F * (1 + q) * (
+    r[:,0] * r[:,0] + r[:,1] * r[:,1])
+        
 
 # def BinaryRoche_points(r,q,D=1.,F=1.):
 #     return 1.0 / np.sqrt(r[:,0] * r[:,0] + r[:,1] * r[:,1] + r[:,2] * r[:,2]) + q * (

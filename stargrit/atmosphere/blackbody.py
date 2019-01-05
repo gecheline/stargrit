@@ -10,16 +10,16 @@ from stargrit import radiative_transfer
 logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO)
 
 allowed_atmosphere_types = ['grey', 'gray', 'monochromatic']
-implemented_rt_methods = ['cobain3d']
+implemented_rt_methods = ['cobain']
 
 class Atmosphere(object):
 
-    def __init__(self, atm_type='grey', rt_method='cobain3d', opactype='mean', **kwargs):
+    def __init__(self, atm_type='grey', rt_method='cobain', opactype='mean', **kwargs):
 
         if atm_type in allowed_atmosphere_types: #and rt_method in implemented_rt_methods:
             self._atm_type=atm_type.replace('e', 'a') if atm_type=='grey' else atm_type 
             self._rt_method = rt_method
-            # quadrature and ndir are attributes of the cobain3d RT method
+            # quadrature and ndir are attributes of the cobain RT method
             self._opactype = opactype
 
             if atm_type=='monochromatic':
@@ -96,30 +96,30 @@ class Atmosphere(object):
             raise ValueError('Atmosphere type %s not recognized, can only be one of %r' % (self._atm_type, allowed_atmosphere_types))
 
 
-class StarAtmosphere(Atmosphere):
+class DiffrotStarAtmosphere(Atmosphere):
 
-    def __init__(self, starinstance, **kwargs):
+    def __init__(self, mesh, directory, **kwargs):
 
-        self.__mesh = starinstance._mesh
-        self.__directory = starinstance.__directory
+        self.__mesh = mesh
+        self.__directory = directory
 
         atm_type = kwargs.pop('atm_type', 'gray')
         quadrature = kwargs.pop('quadrature', 'lebedev')
         ndir = kwargs.pop('ndir', 15)
-        rt_method = kwargs.pop('rt_method', 'cobain3d')
+        rt_method = kwargs.pop('rt_method', 'cobain')
         opactype = kwargs.pop('opactype', 'mean')
-        super(StarAtmosphere,self).__init__(atm_type=atm_type, quadrature=quadrature, ndir=ndir, rt_method=rt_method, opactype=opactype, **kwargs)
+        super(DiffrotStarAtmosphere,self).__init__(atm_type=atm_type, quadrature=quadrature, ndir=ndir, rt_method=rt_method, opactype=opactype, **kwargs)
         
-        rt = getattr(radiative_transfer, self._rt_method)
+        # rt = getattr(radiative_transfer, self._rt_method)
         
-        if hasattr(rt, 'StarRadiativeTransfer'):
-            rt_object = getattr(rt, 'StarRadiativeTransfer')
-            self.RT = rt_object(self, **kwargs) 
-        else:
-            raise ValueError('RT method %s not supported by Star object' % self._rt_method)
+        # if hasattr(rt, 'DiffrotStar%sRadiativeTransfer' % atm_type.title()):
+        #     rt_object = getattr(rt, 'DiffrotStar%sRadiativeTransfer' % atm_type.title())
+        #     self.RT = rt_object(self, **kwargs) 
+        # else:
+        #     raise ValueError('RT method %s not supported by Star object' % self._rt_method)
 
     def compute_atmosphere(self):
-        super(StarAtmosphere,self).compute_atmosphere(self.__directory, self.__mesh)
+        super(DiffrotStarAtmosphere,self).compute_atmosphere(self.__directory, self.__mesh)
 
 class ContactBinaryAtmosphere(Atmosphere):
 
@@ -131,18 +131,18 @@ class ContactBinaryAtmosphere(Atmosphere):
         atm_type = kwargs.pop('atm_type', 'gray')
         quadrature = kwargs.pop('quadrature', 'lebedev')
         ndir = kwargs.pop('ndir', 15)
-        rt_method = kwargs.pop('rt_method', 'cobain3d')
+        rt_method = kwargs.pop('rt_method', 'cobain')
         opactype = kwargs.pop('opactype', 'mean')
         super(ContactBinaryAtmosphere,self).__init__(atm_type=atm_type, quadrature=quadrature, ndir=ndir, rt_method=rt_method, opactype=opactype, **kwargs)
 
         rt = getattr(radiative_transfer, self._rt_method)
 
-        if hasattr(rt, 'ContactBinaryRadiativeTransfer'):
-            rt_object = getattr(rt, 'ContactBinaryRadiativeTransfer')
-            self.RT = rt_object(self, **kwargs) 
+        # if hasattr(rt, 'ContactBinaryRadiativeTransfer'):
+        #     rt_object = getattr(rt, 'ContactBinaryRadiativeTransfer')
+        #     self.RT = rt_object(self, **kwargs) 
 
-        else:
-            raise ValueError('RT method %s not supported by Contact Binary object' % self._rt_method)
+        # else:
+        #     raise ValueError('RT method %s not supported by Contact Binary object' % self._rt_method)
 
     def compute_atmosphere(self):
 

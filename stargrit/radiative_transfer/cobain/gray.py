@@ -226,7 +226,7 @@ class ContactBinaryGrayRadiativeTransfer(GrayRadiativeTransfer, ContactBinaryRad
                 Is[grid] = self._interp_funcs['I'][dirarg](pots, xnorms, thetas)
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain3d' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
 
         rhos1, rhos2 = self._interp_funcs['bbrho1'](pots[le_prim]), self._interp_funcs['bbrho2'](pots2[le_sec])
         Ts1, Ts2 = self._interp_funcs['bbT1'](pots[le_prim]), self._interp_funcs['bbT2'](pots2[le_sec])

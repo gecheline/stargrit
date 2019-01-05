@@ -1,1 +1,1 @@
-from cobain3d import *
+from cobain import *
