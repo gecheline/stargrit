@@ -4,12 +4,13 @@ import quadpy.sphere as quadsph
 import scipy.interpolate as spint
 from stargrit import potentials
 import logging
+import random
 
 class RadiativeTransfer(object):
 
     def __init__(self, atmosphere, quadrature='Lebedev', ndir=15):
 
-        self.__atmosphere = atmosphere
+        self._atmosphere = atmosphere
 
         if hasattr(quadsph, quadrature.title()):
             quadfunc = getattr(quadsph, quadrature.title())
@@ -104,7 +105,7 @@ class RadiativeTransfer(object):
         return potT_bb, potrho_bb
 
 
-    def mesh_interpolation_functions(self, directory, mesh, component='', iter_n=1):
+    def mesh_interpolation_functions(self, component='', iter_n=1):
 
         """
         Computes interpolation in the chosen iteration of the grid points, object and atmosphere specific.
@@ -116,24 +117,24 @@ class RadiativeTransfer(object):
         raise NotImplementedError
 
 
-    def compute_interpolation_functions(self, directory, mesh, iter_n=1):
+    def compute_interpolation_functions(self, iter_n=1):
 
         """
         Computes the blackbody and grid interpolation functions from a chosen iteration.
         """
 
-        potT_bb, potrho_bb = self.blackbody_interpolation_functions(directory)
-        chi_interp, J_interp, I_interp = self.mesh_interpolation_functions(directory, mesh, iter_n=iter_n)
+        potT_bb, potrho_bb = self.blackbody_interpolation_functions(self._atmosphere.directory)
+        chi_interp, S_interp, I_interp = self.mesh_interpolation_functions(iter_n=iter_n)
 
-        self._interp_funcs = {'bbT': potT_bb, 'bbrho': potrho_bb, 'chi': chi_interp, 'J':J_interp, 'I': I_interp}
+        self._interp_funcs = {'bbT': potT_bb, 'bbrho': potrho_bb, 'chi': chi_interp, 'S':S_interp, 'I': I_interp}
 
 
     def compute_initial_Is(self, component=''):
 
-        Ss = np.load(self.__atmosphere.__directory+'S%s_0.npy' % component)
+        Ss = np.load(self._atmosphere.directory+'S%s_0.npy' % component)
 
         for i in range(self._quadrature.nI):
-            np.save(self.__atmosphere.__directory+'I%s_%s_0.npy' % (component, i), Ss)
+            np.save(self._atmosphere.directory+'I%s_0_%s.npy' % (component, i), Ss)
 
 
     def compute_intensity(self, Mc, n):
@@ -141,14 +142,16 @@ class RadiativeTransfer(object):
         return NotImplementedError
 
 
-    def compute_radiative_transfer(self, points, directory, mesh, iter_n=1, ray_discretization=5000):
+    def compute_radiative_transfer(self, points, iter_n=1, ray_discretization=5000):
         
         """
         Computes radiative transfer in a given set of mesh points.
         """
 
+        directory = self._atmosphere.directory
+        mesh = self._atmosphere.mesh
         self._N = ray_discretization
-        self._interp_funcs = self.compute_interpolation_functions(iter_n=iter_n, directory=directory, mesh=mesh)
+        self.compute_interpolation_functions(iter_n=iter_n)
         # setup the arrays that the computation will output
         I_new = np.zeros((len(points), self._quadrature.nI))
         taus_new = np.zeros((len(points), self._quadrature.nI))
@@ -156,13 +159,27 @@ class RadiativeTransfer(object):
         for j, indx in enumerate(points):
             # print 'Entering rt computation'
             logging.info('Computing intensities for point %i of %i' % (j+1, len(points)))
-            r = self.__atmosphere.__mesh.rs[indx]
+            r = self._atmosphere.mesh.rs[indx]
             if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
                 pass
             else:
-                I_new[j], taus_new[j] = self.compute_intensity(self.__atmosphere.__mesh.rs[indx], self.__atmosphere.__mesh.ns[indx])
+                I_new[j], taus_new[j] = self.compute_intensity(self._atmosphere.mesh.rs[indx], self._atmosphere.mesh.ns[indx])
   
         return I_new, taus_new
+
+    def compute_rescale_factors(self):
+        
+        dims = self._atmosphere.mesh._dims
+        points = random.sample(range(int(0.7*dims[0]*dims[1]*dims[2]), int(0.8*dims[0]*dims[1]*dims[2])), 5)
+
+        rescale_factors = np.zeros(self._quadrature.nI)
+        Is, taus = self.compute_radiative_transfer(points, iter_n=1)
+
+        for l in range(self._quadrature.nI):
+            Il = np.load(self._atmosphere.directory+'I_0_'+str(int(l))+'.npy').flatten()
+            rescale_factors[l] = np.average(Il[points]/Is[:,l])
+
+        return rescale_factors
 
 
 class DiffrotStarRadiativeTransfer(RadiativeTransfer):
@@ -176,9 +193,9 @@ class DiffrotStarRadiativeTransfer(RadiativeTransfer):
     def compute_potentials(self, points, bbT, pot_range_grid):
         
         pots = np.zeros(len(points))
-        center = np.all(points == 0., axis=1)
-        pots[center] = bbT[:,0].max()
-        pots[~center] = potentials.diffrot.DiffRotRoche(points, self.__atmosphere.__mesh._bs)
+        # center = np.all(points == 0., axis=1)
+        # pots[center] = bbT[:,0].max()
+        pots = potentials.diffrot.DiffRotRoche(points, self._atmosphere.mesh._bs)
         pots[(np.round(pots, 8) >= np.round(pot_range_grid[0], 8)) & (pots < pot_range_grid[0])] = pot_range_grid[0]
         
         return pots
@@ -193,6 +210,7 @@ class DiffrotStarRadiativeTransfer(RadiativeTransfer):
     def compute_coords_for_interpolation(self, rs):
 
         thetas = np.arccos(rs[:,2] / np.sqrt(np.sum(rs ** 2, axis=1)))
+        thetas[thetas > np.pi/2] = self.rot_theta(thetas[thetas > np.pi/2])
         phis = np.abs(np.arctan2(rs[:,1] / np.sqrt(np.sum(rs ** 2, axis=1)), rs[:,0] / np.sqrt(np.sum(rs ** 2, axis=1))))
         
         return thetas, phis
@@ -210,51 +228,51 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
     def compute_potentials(self, points, q, bbT1, bbT2, pot_range_grid):
 
         pots = np.zeros(len(points))
-        center1 = np.all(points == 0., axis=1)
-        center2 = (points[:, 0] == 1.) & (points[:, 1] == 0.) & (points[:, 2] == 0.)
-        pots[~center1 & ~center2] = potentials.roche.BinaryRoche_cartesian(points[~center1 & ~center2], q)
-        pots[center1] = bbT1[:,0].max()
-        pots[center2] = bbT2[:,0].max()
+        # center1 = np.all(points == 0., axis=1)
+        # center2 = (points[:, 0] == 1.) & (points[:, 1] == 0.) & (points[:, 2] == 0.)
+        pots = potentials.roche.BinaryRoche_cartesian(points, q)
+        # pots[center1] = bbT1[:,0].max()
+        # pots[center2] = bbT2[:,0].max()
         pots[(np.round(pots, 8) >= np.round(pot_range_grid[0], 8)) & (pots < pot_range_grid[0])] = pot_range_grid[0]
         
         return pots
 
     def compute_initial_Is(self):
 
-        if self.__atmosphere.__mesh._geometry == 'spherical':
+        if self._atmosphere.mesh._geometry == 'spherical':
             super(ContactBinaryRadiativeTransfer,self).compute_initial_Is(component='1')
             super(ContactBinaryRadiativeTransfer,self).compute_initial_Is(component='2')
 
-        elif self.__atmosphere.__mesh._geometry == 'cylindrical':
+        elif self._atmosphere.mesh._geometry == 'cylindrical':
             super(ContactBinaryRadiativeTransfer,self).compute_initial_Is()
         
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self._atmosphere.mesh._geometry)
 
 
     def compute_interpolation_functions(self, iter_n=1):
         
-        potT_bb1, potrho_bb1 = self.blackbody_interpolation_functions(self.__atmosphere.__directory, component='1')
-        potT_bb2, potrho_bb2 = self.blackbody_interpolation_functions(self.__atmosphere.__directory, component='2')
+        potT_bb1, potrho_bb1 = self.blackbody_interpolation_functions(self._atmosphere.directory, component='1')
+        potT_bb2, potrho_bb2 = self.blackbody_interpolation_functions(self._atmosphere.directory, component='2')
 
-        if self.__atmosphere.__mesh._geometry == 'spherical':
+        if self._atmosphere.mesh._geometry == 'spherical':
 
-            chi1_interp, J1_interp, I1_interp = self.mesh_interpolation_functions(directory=self.__atmosphere.__directory, mesh=self.__atmosphere.__mesh, component='1', iter_n=iter_n)
-            chi2_interp, J2_interp, I2_interp = self.mesh_interpolation_functions(directory=self.__atmosphere.__directory, mesh=self.__atmosphere.__mesh, component='2', iter_n=iter_n)
+            chi1_interp, J1_interp, I1_interp = self.mesh_interpolation_functions(component='1', iter_n=iter_n)
+            chi2_interp, J2_interp, I2_interp = self.mesh_interpolation_functions(component='2', iter_n=iter_n)
 
             self._interp_funcs = {'bbT1': potT_bb1, 'bbT2': potT_bb2, 'bbrho1': potrho_bb1, 'bbrho2': potrho_bb2, 
-                    'chi1': chi1_interp, 'chi2': chi2_interp, 'J1': J1_interp, 'J2': J2_interp,
+                    'chi1': chi1_interp, 'chi2': chi2_interp, 'S1': J1_interp, 'S2': J2_interp,
                     'I1': I1_interp, 'I2': I2_interp}
 
-        elif self.__atmosphere.__mesh._geometry == 'cylindrical':
+        elif self._atmosphere.mesh._geometry == 'cylindrical':
 
-            chi_interp, J_interp, I_interp = self.mesh_interpolation_functions(directory=self.__atmosphere.__directory, mesh=self.__atmosphere.__mesh, component='', iter_n=iter_n)
+            chi_interp, J_interp, I_interp = self.mesh_interpolation_functions(component='', iter_n=iter_n)
             
             self._interp_funcs = {'bbT1': potT_bb1, 'bbT2': potT_bb2, 'bbrho1': potrho_bb1, 'bbrho2': potrho_bb2, 
-                      'chi': chi_interp, 'J':J_interp, 'I': I_interp}
+                      'chi': chi_interp, 'S':J_interp, 'I': I_interp}
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self._atmosphere.mesh._geometry)
     
 
     @staticmethod
@@ -274,8 +292,8 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
         Computes the different regions along a ray for interpolation: grid/blackbody, primary/secondary.
         """
         
-        prim = (points[:,0] <= self.__atmosphere.__mesh._nekmin)
-        sec = (points[:,0] > self.__atmosphere.__mesh._nekmin)
+        prim = (points[:,0] <= self._atmosphere.mesh._nekmin)
+        sec = (points[:,0] > self._atmosphere.mesh._nekmin)
         le_prim = np.argwhere(prim & (pots > pot_range_grid[1])).flatten()
         le_sec = np.argwhere(sec & (pots > pot_range_grid[1])).flatten()
 
@@ -308,9 +326,10 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             grid = kwargs.pop('grid')
             pots = kwargs.pop('pots')
 
-            xnorms_grid = self.normalize_xs(points[:, 0][grid], pots[grid], self.__atmosphere.__mesh._q)
+            xnorms_grid = self.normalize_xs(points[:, 0][grid], pots[grid], self._atmosphere.mesh._q)
             thetas_grid = np.abs(np.arcsin(points[:,1][grid]/np.sqrt(np.sum((points[:,1][grid]**2,points[:,2][grid]**2),axis=0))))
             thetas_grid[np.isnan(thetas_grid)] = 0.0
+            thetas_grid[thetas_grid > np.pi/2] = self.rot_theta(thetas_grid[thetas_grid > np.pi/2])
 
             return xnorms_grid, thetas_grid
 

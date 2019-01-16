@@ -16,10 +16,10 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
         chi = np.load(directory + 'chi_' + str(iter_n - 1) + '%s.npy' % component)
         J = np.load(directory + 'J_' + str(iter_n - 1) + '%s.npy' % component)
 
-        if self.__atmosphere._opactype == 'mean':
+        if self._atmosphere._opactype == 'mean':
             # if the atmosphere is gray
             chi_interp = RGI(points=[mesh.coords['pots'], mesh.coords['thetas'], mesh.coords['phis']], values=chi)
-        elif self.__atmosphere._opactype == 'monochromatic':
+        elif self._atmosphere._opactype == 'monochromatic':
             chi_interp = chi
         else:
             raise NotImplementedError
@@ -192,14 +192,14 @@ class DiffrotStarMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer, 
 
     def compute_structure(self, points, dirarg, stepsize=False):
 
-        pot_range_grid = [self.__atmosphere.__mesh.coords['pots'].min(), self.__atmosphere.__mesh.coords['pots'].max()]
+        pot_range_grid = [self._atmosphere.mesh.coords['pots'].min(), self._atmosphere.mesh.coords['pots'].max()]
         pots = self.compute_potentials(points, self._interp_funcs['bbT'], pot_range_grid)
         grid, le = self.compute_interp_regions(pots, points, pot_range_grid)
         thetas, phis = self.compute_coords_for_interpolation(points)
         rhos, Ts = self._interp_funcs['bbrho'](pots[le]), self._interp_funcs['bbT'](pots[le])
         chis = np.zeros(len(pots))
         chis[grid] = self._interp_funcs['chi'](pots[grid], thetas[grid], phis[grid])
-        chis[le] = self.__atmosphere.compute_chis(rhos, Ts, opactype=self.__atmosphere._opactype)
+        chis[le] = self._atmosphere.compute_chis(rhos, Ts, opactype=self._atmosphere._opactype)
     
         if stepsize:
             return chis
@@ -210,7 +210,7 @@ class DiffrotStarMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer, 
 
             Ss[grid] = self._interp_funcs['S'](pots[grid], thetas[grid], phis[grid])
             Is[grid] = self._interp_funcs['I'][dirarg](pots[grid], thetas[grid], phis[grid])
-            Ss[le] = Is[le] = self.__atmosphere.compute_source_function(Ts)
+            Ss[le] = Is[le] = self._atmosphere.compute_source_function(Ts)
 
             return chis, Ss, Is
 
@@ -221,9 +221,9 @@ class ContactBinaryMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer
         """
         Returns the radiative structure in all points along a ray.
         """
-        pot_range_grid = [self.__atmosphere.__mesh.coords['pots'].min(), self.__atmosphere.__mesh.coords['pots'].max()]
-        pots = self.compute_potentials(points, self.__atmosphere.__mesh._q, self._interp_funcs['bbT1'], self._interp_funcs['bbT2'], pot_range_grid)
-        q = self.__atmosphere.__mesh._q
+        pot_range_grid = [self._atmosphere.mesh.coords['pots'].min(), self._atmosphere.mesh.coords['pots'].max()]
+        pots = self.compute_potentials(points, self._atmosphere.mesh._q, self._interp_funcs['bbT1'], self._interp_funcs['bbT2'], pot_range_grid)
+        q = self._atmosphere.mesh._q
         pots2 = pots / q + 0.5 * (q - 1) / q
 
         if stepsize:
@@ -233,7 +233,7 @@ class ContactBinaryMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer
             Ss = np.zeros(len(pots))
             Is = np.zeros(len(pots))
 
-        if self.__atmosphere.__mesh._geometry == 'spherical':
+        if self._atmosphere.mesh._geometry == 'spherical':
             
             grid_prim, grid_sec, le_prim, le_sec = self.compute_interp_regions(pots=pots,points=points,pot_range_grid=pot_range_grid, geometry='spherical')
             # thetas and phis are returned for all points (zeros out of grid)... maybe fix this?
@@ -251,7 +251,7 @@ class ContactBinaryMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer
                 Is[grid_prim] = self._interp_funcs['I1'][dirarg](pots[grid_prim], thetas[grid_prim], phis[grid_prim])
                 Is[grid_sec] = self._interp_funcs['I2'][dirarg](pots[grid_sec], thetas[grid_sec], phis[grid_sec])
 
-        elif self.__atmosphere.__mesh._geometry == 'cylindrical':
+        elif self._atmosphere.mesh._geometry == 'cylindrical':
             grid, le_prim, le_sec = self.compute_interp_regions(pots=pots,points=points,pot_range_grid=pot_range_grid,geometry='cylindrical')
             # here xnorms and thetas are only those pertaining to grid points
             xnorms, thetas = self.compute_coords_for_interpolation(points, geometry='cylindrical', grid=grid, pots=pots)
@@ -265,23 +265,23 @@ class ContactBinaryMonochromaticRadiativeTransfer(MonochromaticRadiativeTransfer
                 Is[grid] = self._interp_funcs['I'][dirarg](pots, xnorms, thetas)
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self._atmosphere.mesh._geometry)
 
         rhos1, rhos2 = self._interp_funcs['bbrho1'](pots[le_prim]), self._interp_funcs['bbrho2'](pots2[le_sec])
         Ts1, Ts2 = self._interp_funcs['bbT1'](pots[le_prim]), self._interp_funcs['bbT2'](pots2[le_sec])
 
         if stepsize:
             
-            chis[le_prim] = self.__atmosphere.compute_chis(rhos1, Ts1, opactype=self.__atmosphere._opactype)
-            chis[le_sec] = self.__atmosphere.compute_chis(rhos2, Ts2, opactype=self.__atmosphere._opactype)
+            chis[le_prim] = self._atmosphere.compute_chis(rhos1, Ts1, opactype=self._atmosphere._opactype)
+            chis[le_sec] = self._atmosphere.compute_chis(rhos2, Ts2, opactype=self._atmosphere._opactype)
 
             return chis
 
         else:
 
-            chis[le_prim] = self.__atmosphere.compute_chis(rhos1, Ts1, opactype=self.__atmosphere._opactype)
-            chis[le_sec] = self.__atmosphere.compute_chis(rhos2, Ts2, opactype=self.__atmosphere._opactype)
-            Ss[le_prim] = Is[le_prim] = self.__atmosphere.compute_source_function(Ts1)
-            Ss[le_sec] = Is[le_sec] = self.__atmosphere.compute_source_function(Ts2)
+            chis[le_prim] = self._atmosphere.compute_chis(rhos1, Ts1, opactype=self._atmosphere._opactype)
+            chis[le_sec] = self._atmosphere.compute_chis(rhos2, Ts2, opactype=self._atmosphere._opactype)
+            Ss[le_prim] = Is[le_prim] = self._atmosphere.compute_source_function(Ts1)
+            Ss[le_sec] = Is[le_sec] = self._atmosphere.compute_source_function(Ts2)
         
             return chis, Ss, Is

@@ -4,11 +4,14 @@ import quadpy.sphere as quadsph
 import scipy.interpolate as spint
 from stargrit import potentials
 from stargrit.radiative_transfer.cobain.general import RadiativeTransfer, DiffrotStarRadiativeTransfer, ContactBinaryRadiativeTransfer
+import astropy.units as u 
+import astropy.constants as c 
+
 
 class GrayRadiativeTransfer(RadiativeTransfer):
 
 
-    def mesh_interpolation_functions(self, directory, mesh, component='', iter_n=1):
+    def mesh_interpolation_functions(self, component='', iter_n=1):
 
         """
         Computes interpolation in the chosen iteration of the grid points.
@@ -17,19 +20,28 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         If monochromatic, the arrays of the latest interpolation are returned, to be used in trilinear_interp method.
         """
 
+        directory = self._atmosphere.directory
+        mesh = self._atmosphere.mesh 
+
         RGI = spint.RegularGridInterpolator
 
-        chi = np.load(directory + 'chi_' + str(iter_n - 1) + '%s.npy' % component)
-        J = np.load(directory + 'J_' + str(iter_n - 1) + '%s.npy' % component)
+        chi = np.load(directory + 'chi%s_%i.npy' % (component, iter_n-1))
+        J = np.load(directory + 'S%s_%i.npy' % (component, iter_n-1))
 
-        chi_interp = RGI(points=[mesh.coords['pots'], mesh.coords['thetas'], mesh.coords['phis']], values=chi)
-        J_interp = RGI(points=[mesh.coords['pots'], mesh.coords['thetas'], mesh.coords['phis']], values=J)
+        # update this to automatically retrieve keys from coords dictionary
+        if self._atmosphere.mesh._geometry == 'cylindrical':
+            key1, key2, key3 = 'pots', 'xs_norm', 'thetas'
+        else:
+            key1, key2, key3 = 'pots', 'thetas', 'phis'
+
+        chi_interp = RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=chi)
+        J_interp = RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=J)
 
         I_interp = []
 
         for i in range(self._quadrature.nI):
-            I = np.load(directory + 'I_' + str(iter_n - 1) + '_' + str(int(i)) + '%s.npy' % component)
-            I_interp.append(RGI(points=[mesh.coords['pots'], mesh.coords['thetas'], mesh.coords['phis']], values=I))
+            I = np.load(directory + 'I%s_%i_%i.npy' % (component,iter_n-1,i))
+            I_interp.append(RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=I))
     
         return chi_interp, J_interp, I_interp
 
@@ -151,14 +163,16 @@ class DiffrotStarGrayRadiativeTransfer(GrayRadiativeTransfer, DiffrotStarRadiati
 
     def compute_structure(self, points, dirarg, stepsize=False):
 
-        pot_range_grid = [self.__atmosphere.__mesh.coords['pots'].min(), self.__atmosphere.__mesh.coords['pots'].max()]
+        pot_range_grid = [self._atmosphere.mesh.coords['pots'].min(), self._atmosphere.mesh.coords['pots'].max()]
         pots = self.compute_potentials(points, self._interp_funcs['bbT'], pot_range_grid)
         grid, le = self.compute_interp_regions(pots, points, pot_range_grid)
         thetas, phis = self.compute_coords_for_interpolation(points)
         rhos, Ts = self._interp_funcs['bbrho'](pots[le]), self._interp_funcs['bbT'](pots[le])
+        rhos = rhos * u.M_sun/u.R_sun**3
+        Ts = Ts * u.K
         chis = np.zeros(len(pots))
-        chis[grid] = self._interp_funcs['chi'](pots[grid], thetas[grid], phis[grid])
-        chis[le] = self.__atmosphere.compute_chis(rhos, Ts, opactype=self.__atmosphere._opactype)
+        chis[grid] = self._interp_funcs['chi']((pots[grid], thetas[grid], phis[grid]))
+        chis[le] = self._atmosphere.compute_chis(rhos, Ts, opactype=self._atmosphere._opactype)
     
         if stepsize:
             return chis
@@ -167,9 +181,9 @@ class DiffrotStarGrayRadiativeTransfer(GrayRadiativeTransfer, DiffrotStarRadiati
             Ss = np.zeros(len(pots))
             Is = np.zeros(len(pots))
 
-            Ss[grid] = self._interp_funcs['S'](pots[grid], thetas[grid], phis[grid])
-            Is[grid] = self._interp_funcs['I'][dirarg](pots[grid], thetas[grid], phis[grid])
-            Ss[le] = Is[le] = self.__atmosphere.compute_source_function(Ts)
+            Ss[grid] = self._interp_funcs['S']((pots[grid], thetas[grid], phis[grid]))
+            Is[grid] = self._interp_funcs['I'][dirarg]((pots[grid], thetas[grid], phis[grid]))
+            Ss[le] = Is[le] = self._atmosphere.compute_source_function(Ts)
 
             return chis, Ss, Is
 
@@ -181,9 +195,9 @@ class ContactBinaryGrayRadiativeTransfer(GrayRadiativeTransfer, ContactBinaryRad
         """
         Returns the radiative structure in all points along a ray.
         """
-        pot_range_grid = [self.__atmosphere.__mesh.coords['pots'].min(), self.__atmosphere.__mesh.coords['pots'].max()]
-        pots = self.compute_potentials(points, self.__atmosphere.__mesh._q, self._interp_funcs['bbT1'], self._interp_funcs['bbT2'], pot_range_grid)
-        q = self.__atmosphere.__mesh._q
+        pot_range_grid = [self._atmosphere.mesh.coords['pots'].min(), self._atmosphere.mesh.coords['pots'].max()]
+        pots = self.compute_potentials(points, self._atmosphere.mesh._q, self._interp_funcs['bbT1'], self._interp_funcs['bbT2'], pot_range_grid)
+        q = self._atmosphere.mesh._q
         pots2 = pots / q + 0.5 * (q - 1) / q
 
         if stepsize:
@@ -193,56 +207,56 @@ class ContactBinaryGrayRadiativeTransfer(GrayRadiativeTransfer, ContactBinaryRad
             Ss = np.zeros(len(pots))
             Is = np.zeros(len(pots))
 
-        if self.__atmosphere.__mesh._geometry == 'spherical':
+        if self._atmosphere.mesh._geometry == 'spherical':
             
             grid_prim, grid_sec, le_prim, le_sec = self.compute_interp_regions(pots=pots,points=points,pot_range_grid=pot_range_grid, geometry='spherical')
             # thetas and phis are returned for all points (zeros out of grid)... maybe fix this?
             thetas, phis = self.compute_coords_for_interpolation(points, geometry='spherical', grid_prim=grid_prim, grid_sec=grid_sec)
 
             if stepsize:
-                chis[grid_prim] = self._interp_funcs['chi1'](pots[grid_prim], thetas[grid_prim], phis[grid_prim])
-                chis[grid_sec] = self._interp_funcs['chi2'](pots[grid_sec], thetas[grid_sec], phis[grid_sec])
+                chis[grid_prim] = self._interp_funcs['chi1']((pots[grid_prim], thetas[grid_prim], phis[grid_prim]))
+                chis[grid_sec] = self._interp_funcs['chi2']((pots[grid_sec], thetas[grid_sec], phis[grid_sec]))
 
             else:
-                chis[grid_prim] = self._interp_funcs['chi1'](pots[grid_prim], thetas[grid_prim], phis[grid_prim])
-                chis[grid_sec] = self._interp_funcs['chi2'](pots[grid_sec], thetas[grid_sec], phis[grid_sec])
-                Ss[grid_prim] = self._interp_funcs['S1'](pots[grid_prim], thetas[grid_prim], phis[grid_prim])
-                Ss[grid_sec] = self._interp_funcs['S2'](pots[grid_sec], thetas[grid_sec], phis[grid_sec])
-                Is[grid_prim] = self._interp_funcs['I1'][dirarg](pots[grid_prim], thetas[grid_prim], phis[grid_prim])
-                Is[grid_sec] = self._interp_funcs['I2'][dirarg](pots[grid_sec], thetas[grid_sec], phis[grid_sec])
+                chis[grid_prim] = self._interp_funcs['chi1']((pots[grid_prim], thetas[grid_prim], phis[grid_prim]))
+                chis[grid_sec] = self._interp_funcs['chi2']((pots[grid_sec], thetas[grid_sec], phis[grid_sec]))
+                Ss[grid_prim] = self._interp_funcs['S1']((pots[grid_prim], thetas[grid_prim], phis[grid_prim]))
+                Ss[grid_sec] = self._interp_funcs['S2']((pots[grid_sec], thetas[grid_sec], phis[grid_sec]))
+                Is[grid_prim] = self._interp_funcs['I1'][dirarg]((pots[grid_prim], thetas[grid_prim], phis[grid_prim]))
+                Is[grid_sec] = self._interp_funcs['I2'][dirarg]((pots[grid_sec], thetas[grid_sec], phis[grid_sec]))
 
-        elif self.__atmosphere.__mesh._geometry == 'cylindrical':
+        elif self._atmosphere.mesh._geometry == 'cylindrical':
 
             grid, le_prim, le_sec = self.compute_interp_regions(pots=pots,points=points,pot_range_grid=pot_range_grid,geometry='cylindrical')
             # here xnorms and thetas are only those pertaining to grid points
             xnorms, thetas = self.compute_coords_for_interpolation(points, geometry='cylindrical', grid=grid, pots=pots)
             
             if stepsize:
-                chis[grid] = self._interp_funcs['chi'](pots[grid], xnorms, thetas)
+                chis[grid] = self._interp_funcs['chi']((pots[grid], xnorms, thetas))
             
             else:
-                chis[grid] = self._interp_funcs['chi'](pots, xnorms, thetas)
-                Ss[grid] = self._interp_funcs['S'](pots, xnorms, thetas)
-                Is[grid] = self._interp_funcs['I'][dirarg](pots, xnorms, thetas)
+                chis[grid] = self._interp_funcs['chi']((pots, xnorms, thetas))
+                Ss[grid] = self._interp_funcs['S']((pots, xnorms, thetas))
+                Is[grid] = self._interp_funcs['I'][dirarg]((pots, xnorms, thetas))
 
         else:
-            raise ValueError('Geometry %s not supported with rt_method cobain' % self.__atmosphere.__mesh._geometry)
+            raise ValueError('Geometry %s not supported with rt_method cobain' % self._atmosphere.mesh._geometry)
 
-        rhos1, rhos2 = self._interp_funcs['bbrho1'](pots[le_prim]), self._interp_funcs['bbrho2'](pots2[le_sec])
-        Ts1, Ts2 = self._interp_funcs['bbT1'](pots[le_prim]), self._interp_funcs['bbT2'](pots2[le_sec])
+        rhos1, rhos2 = self._interp_funcs['bbrho1'](pots[le_prim])*u.M_sun/u.R_sun**3, self._interp_funcs['bbrho2'](pots2[le_sec])*u.M_sun/u.R_sun**3
+        Ts1, Ts2 = self._interp_funcs['bbT1'](pots[le_prim])*u.K, self._interp_funcs['bbT2'](pots2[le_sec])*u.K
 
         if stepsize:
             
-            chis[le_prim] = self.__atmosphere.compute_chis(rhos1, Ts1, opactype=self.__atmosphere._opactype)
-            chis[le_sec] = self.__atmosphere.compute_chis(rhos2, Ts2, opactype=self.__atmosphere._opactype)
+            chis[le_prim] = self._atmosphere.compute_chis(rhos1, Ts1, opactype=self._atmosphere._opactype)
+            chis[le_sec] = self._atmosphere.compute_chis(rhos2, Ts2, opactype=self._atmosphere._opactype)
 
             return chis
 
         else:
 
-            chis[le_prim] = self.__atmosphere.compute_chis(rhos1, Ts1, opactype=self.__atmosphere._opactype)
-            chis[le_sec] = self.__atmosphere.compute_chis(rhos2, Ts2, opactype=self.__atmosphere._opactype)
-            Ss[le_prim] = Is[le_prim] = self.__atmosphere.compute_source_function(Ts1)
-            Ss[le_sec] = Is[le_sec] = self.__atmosphere.compute_source_function(Ts2)
+            chis[le_prim] = self._atmosphere.compute_chis(rhos1, Ts1, opactype=self._atmosphere._opactype)
+            chis[le_sec] = self._atmosphere.compute_chis(rhos2, Ts2, opactype=self._atmosphere._opactype)
+            Ss[le_prim] = Is[le_prim] = self._atmosphere.compute_source_function(Ts1)
+            Ss[le_sec] = Is[le_sec] = self._atmosphere.compute_source_function(Ts2)
         
             return chis, Ss, Is

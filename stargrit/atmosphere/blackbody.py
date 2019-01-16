@@ -100,8 +100,8 @@ class DiffrotStarAtmosphere(Atmosphere):
 
     def __init__(self, mesh, directory, **kwargs):
 
-        self.__mesh = mesh
-        self.__directory = directory
+        self.mesh = mesh
+        self.directory = directory
 
         atm_type = kwargs.pop('atm_type', 'gray')
         quadrature = kwargs.pop('quadrature', 'lebedev')
@@ -119,14 +119,14 @@ class DiffrotStarAtmosphere(Atmosphere):
         #     raise ValueError('RT method %s not supported by Star object' % self._rt_method)
 
     def compute_atmosphere(self):
-        super(DiffrotStarAtmosphere,self).compute_atmosphere(self.__directory, self.__mesh)
+        super(DiffrotStarAtmosphere,self).compute_atmosphere(self.directory, self.mesh)
 
 class ContactBinaryAtmosphere(Atmosphere):
 
     def __init__(self, mesh, directory, **kwargs):
 
-        self.__mesh = mesh
-        self.__directory = directory
+        self.mesh = mesh
+        self.directory = directory
 
         atm_type = kwargs.pop('atm_type', 'gray')
         quadrature = kwargs.pop('quadrature', 'lebedev')
@@ -146,15 +146,15 @@ class ContactBinaryAtmosphere(Atmosphere):
 
     def compute_atmosphere(self):
 
-        if self.__mesh._geometry == 'cylindrical':
-            super(ContactBinaryAtmosphere,self).compute_atmosphere(directory=self.__directory, mesh=self.__mesh)
+        if self.mesh._geometry == 'cylindrical':
+            super(ContactBinaryAtmosphere,self).compute_atmosphere(directory=self.directory, mesh=self.mesh)
             
-        elif self.__mesh._geometry == 'spherical':
-            super(ContactBinaryAtmosphere,self).compute_atmosphere(directory=self.__directory, mesh=self.__mesh, component='1')
-            super(ContactBinaryAtmosphere,self).compute_atmosphere(directory=self.__directory, mesh=self.__mesh, component='2')
+        elif self.mesh._geometry == 'spherical':
+            super(ContactBinaryAtmosphere,self).compute_atmosphere(directory=self.directory, mesh=self.mesh, component='1')
+            super(ContactBinaryAtmosphere,self).compute_atmosphere(directory=self.directory, mesh=self.mesh, component='2')
 
         else:
-            raise ValueError('Geometry %s not supported' % self.__mesh._geometry)
+            raise ValueError('Geometry %s not supported' % self.mesh._geometry)
 
 
 

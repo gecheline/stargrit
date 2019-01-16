@@ -170,7 +170,13 @@ class DiffrotStarPolytrope(Polytrope):
 
         r0_tau1 = r0_intp([2.0 / 3.0])[0]
 
-        return 1./r0_tau1
+        # compute the scaling so that the surface potential at tau=2/3 corresponds to the user-provided radius
+        area_volume = self.area_volume(r0_tau1)
+        requiv = 3*area_volume['volume']/(4*np.pi)
+        
+        scale = self._R/requiv
+
+        return 1./r0_tau1, scale
 
     def compute_structure(self, mesh, directory, parallel=False):
 
@@ -201,6 +207,27 @@ class DiffrotStarPolytrope(Polytrope):
         rhos_bb = self._le['rhoc'] * theta_pots_bb ** self._n
         bb_file = np.array([pots_bb, Ts_bb, rhos_bb]).T
         np.save(directory+'potTrho_bb', bb_file)
+
+
+    def area_volume(self, r0):
+
+        bs = self._bs
+        R = self._R
+
+        V = 4. * np.pi / 3. * (R) ** 3 * r0 ** 3 * (
+            1 + bs[0] * r0 ** 3 + 0.4 * bs[1] * r0 ** 5 + 1.6 * bs[0] ** 2 * r0 ** 6 + 8. / 35. * bs[
+                2] * r0 ** 7 + 12. / 7. * bs[0] * bs[1] * r0 ** 8 + (
+                128. / 105. * bs[0] * bs[2] + 16. / 35. * bs[1] ** 2) * r0 ** 10 + 208. / 35. * bs[0] ** 2 * bs[
+                1] * r0 ** 11 + 64. / 99. * bs[1] * bs[2] * r0 ** 12)
+
+        S = 4. * np.pi * (R) ** 2 * r0 ** 2 * (
+            1 + 2. / 3. * bs[0] * r0 ** 3 + 4. / 15. * bs[1] * r0 ** 5 + 14. / 15. * bs[0] ** 2 * r0 ** 6 + 16. / 105. *
+            bs[
+                2] * r0 ** 7 + 36. / 35. * bs[0] * bs[1] * r0 ** 8 + (
+                704. / 945. * bs[0] * bs[2] + 88. / 315. * bs[1] ** 2) * r0 ** 10 + 1024. / 315. * bs[0] ** 2 * bs[
+                1] * r0 ** 11 + 832. / 2079. * bs[1] * bs[2] * r0 ** 12)
+
+        return {'volume': V, 'area': S}
 
 
 class TidalStarPolytrope(Polytrope):
