@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
 setup(name='stargrit',
-      version='0.1.1',
+      version='0.1.2',
       description='STellAR General RadiatIve Transfer',
-      # url='https://github.com/gecheline/cobain',
+      url='https://github.com/gecheline/stargrit',
       author='Angela Kochoska',
       author_email='a.kochoska@gmail.com',
       license='MIT License',

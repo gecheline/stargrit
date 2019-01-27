@@ -1,59 +1,150 @@
-from stargrit.objects.body import Body
-import numpy as np 
-import os, shutil
-import logging
-import stargrit as sg
-import astropy.units as u
-from stargrit import geometry
-from stargrit import structure
-from stargrit import atmosphere
-from stargrit import radiative_transfer
-
-logging.basicConfig(format='%(asctime)s: %(message)s', level=logging.INFO)
-
-implemented_object_types = ['diffrot_star', 'contact_binary']
-implemented_structures = ['polytropes']
-implemented_atmospheres = ['blackbody']
-implemented_geometries = ['cylindrical', 'spherical']
-implemented_rt_methods = ['cobain']
-
-class ContactBinary(Body):
+from stargrit.objects.object import Object
+from stargrit.structure.potentials import roche
+import astropy.units as u 
 
 
-    def __init__(self, geometry='cylindrical', structure='polytropes', atmosphere='blackbody', directory=os.getcwd()+'/', **kwargs):
+class ContactBinary(Object):
 
-        super(ContactBinary, self).__init__(objtype='contact_binary', geometry=geometry, structure=structure,atmosphere=atmosphere,
-                                directory=directory)
+    def __init__(self, geometry = 'cylindrical', structure='polytropes:tidal', 
+                atmosphere='blackbody:gray', **kwargs):
 
-        # check which parameters are provided by user and use defaults if not provided
-        self._q = kwargs.get('q', 1.0)
-        self._teff = kwargs.get('teff', 5777.0)*u.K
-        self._mass1 = kwargs.get('mass1', 1.0)*u.M_sun
+        """
+        Initializes a Contact Binary class instance.
 
-        # check if potential or ff provided
-        if 'ff' in kwargs.keys() and 'pot' not in kwargs.keys():
-            ff = kwargs['ff']
-            pot = sg.potentials.roche.ff_to_pot(ff,self._q)
-        elif 'pot' in kwargs.keys() and 'ff' not in kwargs.keys():
-            pot = kwargs['pot']
-            ff = sg.potentials.roche.pot_to_ff(pot,self._q)
-        elif 'ff' in kwargs.keys() and 'pot' in kwargs.keys():
-            if kwargs['ff'] == sg.potentials.roche.pot_to_ff(kwargs['pot'],self._q):
-                pot = kwargs['pot']
-                ff = kwargs['ff']
-            else:
-                raise ValueError('Value mismatch for pot and ff, provide only one.')
+        The Contact Binary class initializes an Object with object_type 'contact_binary',
+        a cylindrical mesh and choice of hydrodynamical structure and atmosphere model.
+
+        Parameters
+        ----------
+        geometry: str
+            Geometry of the mesh (default is 'cylindrical').
+        structure: str
+            Hydrodynamical model of the structure (default 'polytropes:tidal').
+        atmosphere: str
+            Atmosphere model (default 'blackbody:gray').
+        **kwargs
+            Any choice of parameter values associated with the overall model.
+
+
+        Attributes
+        ----------
+        q - mass ratio (M2/M1)
+        ff - fillout factor of the envelope
+        pot - Roche potential corresponding to the fillout factor
+
+
+        Methods
+        -------
+        set_object_attributes
+            Generates the attributes associated with the ContactBinary class.
+        implemented_geometries
+            Returns a list the geometries implemented for ContactBinary class.
+        implemented_structures
+            Returns a list of the structures compatible with ContactBinary class.
+        default_units
+            Returns a dictionary of the attributes and their corresponding default units.
+
+        """
+        self.__q = 1.
+        self.__ff = 0.5
+
+        super(ContactBinary,self).__init__(object_type='contact_binary', geometry=geometry, 
+                                    structure=structure, atmosphere=atmosphere, **kwargs)
+
+
+    def set_object_attributes(self, **kwargs):
+        """
+        Adds parameters associated with object type.
+
+        The values of parameters can be provided as floats or astropy quantities.
+        If floats, the default unit is assumed.
+
+        Parameters
+        ----------
+        **kwargs - if provided when initializing class, the values will be set 
+                    to input values, otherwise default
+            q - defined as M2/M1, dimensionless
+            pot - value of the Roche potential of the surface
+            ff - fillout factor corresponding to the surface potential
+
+        """
+
+        # collect values if provided in kwargs or set to default
+        mass1 = kwargs.get('mass1', 1.)
+        qv = kwargs.get('q', 1.)
+        ffv = kwargs.get('ff', 0.5)
+
+        # add attributes and set collected values
+        self.mass1 = 1.
+        self.q = qv 
+        self.ff = ffv
+
+
+    @property
+    def q(self):
+        """
+        Mass of the star (default unit 1 Solar mass).
+        """
+        return self.__q
+    
+
+    @q.setter
+    def q(self, value):
+
+        if value <= 1.:
+            self.__q = value
         else:
-            ff = 0.5
-            pot = sg.potentials.roche.ff_to_pot(ff,self._q)
+            raise ValueError('Please provide a value for q that is less than 1.\
+            The mass ratio is defined as q=mass2/mass1, where mass2 <= mass1.')
 
-        self._pot = pot
-        self._ff = ff
+    
+    @property
+    def ff(self):
+        """
+        Fillout factor of the contact envelope. Must be within range [0,1].
+        """
+        return self.__ff
+    
+
+    @ff.setter
+    def ff(self, value):
+        if value >= 0. and value <= 1.:
+            self.__ff = value
+        else:
+            raise ValueError('Please provide a value between 0 and 1 \
+            for the fillout factor. ff < 0 corresponds to a detached \
+            system, while ff > 1 causes mass overflow through L2.')
 
 
-    def add_mesh(self, atm_range=0.01, dims = [50,100,50], mesh_part='quarter',compute=True):
-        super(ContactBinary, self).add_mesh(atm_range=atm_range, dims=dims, mesh_part=mesh_part, q=self._q, pot=self._pot, compute=compute)
+    @property
+    def pot(self):
+        """
+        Value of the Roche potential based on the fillout factor.
+        """
+        crit_pots = roche.critical_pots(self.q)
+        return roche.ff_to_pot(self.ff,self.q)
+        
+
+    def implemented_geometries(self):
+        """Returns implemented geometries associated with the object."""
+        return ['spherical']
 
 
-    def add_structure(self, **kwargs):
-        super(ContactBinary, self).add_structure(pot=self._pot, q=self._q, **kwargs)
+    def implemented_structures(self):
+        """Returns implemented structure models associated with the object."""
+        return ['polytropes:diffrot']
+
+    
+    def default_units(self):
+        """
+        Default units used by the object attributes.
+
+        Default units throughout the code should not be edited because they strongly
+        affect the radiative transfer computations.
+
+        Returns
+        -------
+        dict
+            A dictionary of attributes with assigned default (astropy) units.
+        """
+        return {}

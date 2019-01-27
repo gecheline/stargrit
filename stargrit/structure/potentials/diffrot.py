@@ -44,6 +44,7 @@ def dDiffRotRochedz(r, bs):
 
 
 def radius_newton(pot, bs, theta):
+    
     r0 = 1. / pot
     x = 1. - (np.cos(theta)) ** 2
 
