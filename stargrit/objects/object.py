@@ -1,6 +1,8 @@
 import os
 import shutil
-from stargrit import structure, geometry, atmosphere
+from stargrit import structure, geometry, atmosphere, radiative_transfer
+from stargrit.structure.polytropes import DiffrotPolytrope, RochePolytrope
+from stargrit.atmosphere.blackbody import GrayBlackbody, MonochromaticBlackbody
 
 
 class Object(object):
@@ -38,13 +40,14 @@ class Object(object):
 
         self.directory = kwargs.get('directory', os.getcwd()+'/')
         
-        self.add_object_type(object_type, **kwargs)
-        self.add_mesh(geometry, **kwargs)
-        self.add_structure(structure, **kwargs)
+        self._add_object_type(object_type, **kwargs)
+        self._add_mesh(geometry, **kwargs)
+        self._add_structure(structure, **kwargs)
+        self._add_atmosphere(atmosphere, **kwargs)
         
         
 
-    def add_object_type(self, object_type, **kwargs):
+    def _add_object_type(self, object_type, **kwargs):
         """
         Assigns object parameter set if object type is implemented.
 
@@ -59,15 +62,15 @@ class Object(object):
             If input object_type not supported by stargrit.
         """
 
-        if object_type in self.implemented_object_types():
+        if object_type in self.implemented_object_types:
             self.__object_type = object_type
-            self.set_object_attributes(**kwargs)
+            self._set_object_attributes(**kwargs)
 
         else:
             raise ValueError('Object type {} not supported by stargrit'.format(object_type))
 
 
-    def add_mesh(self, geometry_value, **kwargs):
+    def _add_mesh(self, geometry_value, **kwargs):
         """
         Assigns mesh parameterset if geometry compatible with object type.
 
@@ -82,7 +85,7 @@ class Object(object):
             If geometry not supported or incompatible with object type.
         """
 
-        if geometry_value in self.implemented_geometries():
+        if geometry_value in self.implemented_geometries:
             geometry_module = getattr(geometry, geometry_value)
             geometry_class = getattr(geometry_module, 
                                 '%s%s%s' % (self.object_type.title().replace("_",""), 
@@ -98,18 +101,18 @@ class Object(object):
 
     
     @mesh.setter
-    def mesh(self, value, **kwargs):
-        self.add_mesh(value, **kwargs)
+    def mesh(self, value):
+        self._add_mesh(value)
 
     
     def _compute_mesh(self, **kwargs):
         if self.mesh == None:
-            raise ReferenceError('No geometry object detected. Add first with .add_geometry().')
+            raise ReferenceError('No geometry attribute detected. Add first with .add_geometry().')
         else:
             self.mesh._compute(**kwargs)
 
 
-    def add_structure(self, structure_value, **kwargs):
+    def _add_structure(self, structure_value, **kwargs):
         """
         Assigns structure parameterset if supported and compatible with object type.
 
@@ -126,7 +129,7 @@ class Object(object):
             If structure not supported or incompatible with object type.
         """
 
-        if structure_value in self.implemented_structures():
+        if structure_value in self.implemented_structures:
             structure_levels = structure_value.split(':')
             structure_module = getattr(structure, structure_levels[0])
             structure_class = getattr(structure_module, 
@@ -137,24 +140,108 @@ class Object(object):
         else:
             raise ValueError('Structure {} incompatible with object type {}'.format(structure, self.object_type))
 
+
     @property
     def structure(self):
         return self.__structure
 
     
     @structure.setter
-    def structure(self, value, **kwargs):
-        self.add_structure(value, **kwargs)
+    def structure(self, value):
+        self._add_structure(value)
 
     
-    def compute_structure(self, **kwargs):
+    def _compute_structure(self, **kwargs):
         if self.structure == None:
-            raise ReferenceError('No structure object detected. Add first with .add_structure().')
+            raise ReferenceError('No structure attribute detected. Add first with .add_structure().')
         else:
             self.structure._compute(**kwargs)
 
 
-    def set_object_attributes(self, object_type, **kwargs):
+    def _add_atmosphere(self, atmosphere_value, **kwargs):
+        """
+        Assigns atmosphere parameterset if supported and compatible with object type.
+
+        Parameters
+        ----------
+        atmosphere: str
+            Atmosphere model.
+            Always provided in the format 'module:submodule'.
+            (current options: 'blackbody:gray' and 'blackbody:monochromatic')
+
+        Raises
+        ------
+        ValueError
+            If atmosphere not supported or incompatible with object type.
+        """
+
+        if atmosphere_value in self.implemented_atmospheres:
+            atmosphere_levels = atmosphere_value.split(':')
+            atmosphere_module = getattr(atmosphere, atmosphere_levels[0])
+            atmosphere_class = getattr(atmosphere_module, 
+                                '%s%s' % (atmosphere_levels[1].title(),
+                                atmosphere_levels[0].title().rstrip('s')))
+            self.__atmosphere = atmosphere_class(self, **kwargs)
+
+        else:
+            raise ValueError('atmosphere {} incompatible with object type {}'.format(atmosphere, self.object_type))
+
+    @property
+    def atmosphere(self):
+        return self.__atmosphere
+
+    
+    @atmosphere.setter
+    def atmosphere(self, value):
+        self._add_atmosphere(value)
+
+    
+    def _compute_atmosphere(self, **kwargs):
+        if self.atmosphere == None:
+            raise ReferenceError('No atmosphere attribute detected. Add first with .add_atmosphere().')
+        else:
+            self.atmosphere._compute(**kwargs)
+
+
+    def _add_radiative_transfer(self, rt_method='cobain', **kwargs):
+
+        if rt_method in self.implemented_rt_methods:
+            rt_module = getattr(radiative_transfer, rt_method)
+
+            # this needs to be better handled in the future
+            if isinstance(self.structure, DiffrotPolytrope):
+                obj = 'DiffrotStar'
+            elif isinstance(self.structure, RochePolytrope):
+                obj = 'ContactBinary'
+            else:
+                raise ValueError
+
+            if isinstance(self.atmosphere, GrayBlackbody):
+                atm = 'Gray'
+            elif isinstance(self.atmosphere, MonochromaticBlackbody):
+                atm = 'Monochromatic'
+            else:
+                raise ValueError
+
+            rt_class = getattr(rt_module, '%s%s%s' % (obj, atm, 'RadiativeTransfer'))
+            self.__rt = rt_class(self, **kwargs)
+
+
+    def _add_rt(self, rt_method, **kwargs):
+        self._add_radiative_transfer(rt_method, **kwargs)
+
+
+    @property
+    def rt(self):
+        return self.__rt
+
+    
+    @rt.setter
+    def rt(self, value):
+        self._add_radiative_transfer(value)
+
+
+    def _set_object_attributes(self, object_type, **kwargs):
         """
         Adds parameters associated with object type.
 
@@ -163,6 +250,41 @@ class Object(object):
         raise NotImplementedError
 
 
+    def _compute_initial(self,**kwargs):
+
+        """
+        Computes the intial state of the object.
+
+        After completion, the mesh, structure and intitial atmosphere arrays
+        will be computed and attached to their parent objects or saved as files.
+        """
+
+        # some attributes are shared between classes so the kwargs need to be
+        # properly distributed here, to avoid unnecessary recomputing
+
+        mesh_params = set(kwargs.keys()) & set(self.mesh._params())
+        structure_params = (set(kwargs.keys()) & set(self.structure._params())) - mesh_params
+        atmosphere_params = (set(kwargs.keys()) & set(self.atmosphere._params())) - mesh_params - structure_params
+
+        kwargs_mesh = {}
+        kwargs_structure = {}
+        kwargs_atmosphere = {}
+
+        for param in mesh_params:
+            kwargs_mesh[param] = kwargs[param]
+
+        for param in structure_params:
+            kwargs_structure[param] = kwargs[param]
+
+        for param in atmosphere_params:
+            kwargs_atmosphere[param] = kwargs[param]
+
+        self.mesh._compute(**kwargs_mesh)
+        self.structure._compute(**kwargs_structure)
+        self.atmosphere._compute(**kwargs_atmosphere)
+
+
+    @property
     def implemented_object_types(self):
         """
         Returns implemented object types.
@@ -170,6 +292,7 @@ class Object(object):
         return ['star', 'contact_binary']
 
 
+    @property
     def implemented_geometries(self):
         """
         Returns implemented geometries associated with the object.
@@ -179,6 +302,7 @@ class Object(object):
         return ['spherical', 'cylindrical']
 
 
+    @property
     def implemented_structures(self):
         """
         Returns implemented structure models associated with the object.
@@ -186,6 +310,25 @@ class Object(object):
         Overriden by subclass.
         """
         return ['polytropes:diffrot', 'polytropes:tidal']
+
+    
+    @property
+    def implemented_atmospheres(self):
+        """
+        Returns implemented structure models associated with the object.
+        
+        Overriden by subclass.
+        """
+        return ['blackbody:gray', 'blackbody:monochromatic']
+
+    
+    @property
+    def implemented_rt_methods(self):
+        """
+        Returns implemented radiative transfer models associated with the object.
+        """
+        return ['cobain']
+
 
 
     @property

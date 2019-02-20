@@ -29,20 +29,24 @@ class Star(Object):
         Attributes
         ----------
         mass
+            Mass of the star.
         radius
+            Radius of the star.
         teff
+            Effective temperature of the star.
+        default_units
+            A dictionary of the Star attributes and their corresponding default units.
 
 
         Methods
         -------
-        set_object_attributes
+        _set_object_attributes
             Generates the attributes associated with the Star class.
-        implemented_geometries
+        _implemented_geometries
             Returns a list the geometries implemented for Star class.
-        implemented_structures
+        _implemented_structures
             Returns a list of the structures compatible with Star class.
-        default_units
-            Returns a dictionary of the attributes and their corresponding default units.
+        
 
         """
 
@@ -50,7 +54,7 @@ class Star(Object):
                                     structure=structure, atmosphere=atmosphere, **kwargs)
 
 
-    def set_object_attributes(self, **kwargs):
+    def _set_object_attributes(self, **kwargs):
         """
         Adds parameters associated with object type.
 
@@ -93,7 +97,7 @@ class Star(Object):
         if hasattr(value,'unit'):
             self.__mass = value
         else:
-            self.__mass = value*self.default_units()['mass']
+            self.__mass = value*self.default_units['mass']
 
     
     @property
@@ -109,7 +113,7 @@ class Star(Object):
         if hasattr(value,'unit'):
             self.__radius = value
         else:
-            self.__radius = value*self.default_units()['radius']
+            self.__radius = value*self.default_units['radius']
 
 
     @property
@@ -125,7 +129,7 @@ class Star(Object):
         if hasattr(value,'unit'):
             self.__teff = value
         else:
-            self.__teff = value*self.default_units()['teff']
+            self.__teff = value*self.default_units['teff']
 
     @property
     def mass_fractions(self):
@@ -159,16 +163,27 @@ class Star(Object):
         return 1./(2.*X + 0.75*Y + 0.5*Z)
 
 
+    @property
     def implemented_geometries(self):
         """Returns implemented geometries associated with the object."""
         return ['spherical']
 
 
+    @property
     def implemented_structures(self):
         """Returns implemented structure models associated with the object."""
         return ['polytropes:diffrot']
 
-    
+
+    @property    
+    def implemented_atmospheres(self):
+        """
+        Returns implemented atmosphere models associated with the object.
+        """
+        return ['blackbody:gray', 'blackbody:monochromatic']
+
+
+    @property
     def default_units(self):
         """
         Default units used by the object attributes.

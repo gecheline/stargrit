@@ -61,6 +61,7 @@ class DiffrotPolytrope(object):
             teff
             mass_fractions
             mu
+        default_units
         """
 
         self.n = kwargs.get('n', 3.)
@@ -188,6 +189,12 @@ class DiffrotPolytrope(object):
         return self.__pot
 
 
+    @property
+    def atm_range(self):
+        """The potentials spanning optical depths 1-1000"""
+        return [self.__pot_atm, self.__pot_atm_range]
+
+
     def _le_dimless(self, xiu):
 
         """
@@ -259,8 +266,8 @@ class DiffrotPolytrope(object):
         ts_theta_interp = interp1d(soln[:,0][:negtheta], ts[:negtheta])
         t_surface = float(ts_theta_interp(0.))
         dtheta_surface = float(dtheta_interp(t_surface))
-
-        return t_surface, dtheta_surface, np.array([ts, soln[:, 0]])
+        soln[:,0][soln[:,0]<0] = np.zeros(len(soln[:,0][soln[:,0]<0]))
+        return t_surface, dtheta_surface, np.array([ts[:negtheta], soln[:, 0][:negtheta]])
 
 
     def _lane_emden(self):
@@ -268,7 +275,7 @@ class DiffrotPolytrope(object):
         """
         Compute the all functions and variables related to the polytrope.
 
-        Assigns a ._le attribute to the class that contains a dictionary
+        Assigns a .le attribute to the class that contains a dictionary
         of all the relevant parameters and their computed values.
         """
 
@@ -278,11 +285,14 @@ class DiffrotPolytrope(object):
 
         # self.radius is the undistorted radius of the outermost potential surface
         rn = self.radius / xi_s
-        rhoc = (-1) * self.mass / (4 * np.pi * rn ** 3 * xi_s ** 2 * dthetadxi_s)
-        Tc = (1. / ((self.n + 1) * xi_s * ((-1) * dthetadxi_s)) * const.G * self.mass * self.mu * const.m_p / const.k_B / self.radius).to(u.K)
+        rhoc = ((-1) * self.mass / (4 * np.pi * rn ** 3 * xi_s ** 2 
+                * dthetadxi_s)).to(self.default_units['rho'])
+        Tc = (1. / ((self.n + 1) * xi_s * ((-1) * dthetadxi_s)) * const.G 
+                * self.mass * self.mu * const.m_p / const.k_B 
+                / self.radius).to(self.default_units['T'])
         # compute the polytrope of the distorted star
         r0_s, dthetadr0_s, theta_soln = self._le_dimless(xi_s)
-        area_volume = self._area_volume(r0_s, xi_s, alpha=1.*u.R_sun/xi_s)
+        area_volume = self._area_volume(r0_s, xi_s, alpha=1./xi_s)
 
         self.__le = {'r0_s': r0_s, 'area': area_volume['area'], 
         'volume': area_volume['volume'], 'theta_soln': theta_soln, 
@@ -340,9 +350,12 @@ class DiffrotPolytrope(object):
 
         r0_intp = interp1d(op_depths, r0s)
 
-        r0_tau1 = r0_intp([2.0 / 3.0])[0]
+        r0_tau1 = r0_intp([2.3])[0]
+        r0_tau1000 = r0_intp([1000.])[0]
 
-        self.__pot = 1./r0_tau1
+        self.__pot = 1./r0
+        self.__pot_atm = 1./r0_tau1
+        self.__pot_atm_range = 1./r0_tau1000
 
         # the potentials in the mesh will be given arbitrarily
         # need to readjust so that lowest potential corresponds to surface
@@ -371,7 +384,7 @@ class DiffrotPolytrope(object):
 
         pots_bb = np.linspace(pots[0], pots[1]+10, 10000)
         theta_pots_bb = theta_interp(1./pots_bb)
-        Ts_bb = self.le['Tc']*pots_bb
+        Ts_bb = self.le['Tc']*theta_pots_bb
         rhos_bb = self.le['rhoc'] * theta_pots_bb ** self.n
 
         bb_file = np.array([pots_bb, Ts_bb, rhos_bb]).T
@@ -411,36 +424,6 @@ class DiffrotPolytrope(object):
         return [key for key in dir(self) if not key.startswith('_')]
 
 
-    def _compute(self, **kwargs):
-        """
-        Computes the differentially rotating Lane-Emden eq. and structure files.
-
-        Can accept all relevant parameters on call and update them before compute.
-        A mesh object with mesh.coords needs to exist before calling structure.compute
-
-        Returns
-        -------
-        Temperature and density saved in files 'T_0.npy' and 'rho_0.npy'
-        as structured arrays of shape mesh.dims
-        """
-
-        # if some parameters provided in kwargs, update values here
-
-        if kwargs:
-            newparams = set(kwargs.keys()) & set(self._params())
-            if newparams:
-                for param in newparams:
-                    setattr(self,param,kwargs[param])
-            
-            self._lane_emden()
-
-        if self.__star.mesh == None:
-            raise ValueError('Mesh object needs to be created first.')
-        else:
-            self._bb_files()
-            self._structure_files()
-
-
     def _compute_radius(self, pot, direction):
 
         """
@@ -476,3 +459,49 @@ class DiffrotPolytrope(object):
         nn = np.sqrt(nx * nx + ny * ny + nz * nz)
 
         return np.array([nx / nn, ny / nn, nz / nn])
+
+
+    def _compute(self, **kwargs):
+        """
+        Computes the differentially rotating Lane-Emden eq. and structure files.
+
+        Can accept all relevant parameters on call and update them before compute.
+        A mesh object with mesh.coords needs to exist before calling structure.compute
+
+        Returns
+        -------
+        Temperature and density saved in files 'T_0.npy' and 'rho_0.npy'
+        as structured arrays of shape mesh.dims
+        """
+
+        # if some parameters provided in kwargs, update values here
+
+        if kwargs:
+            newparams = set(kwargs.keys()) & set(self._params())
+            if newparams:
+                for param in newparams:
+                    setattr(self,param,kwargs[param])
+            
+            self._lane_emden()
+
+        if self.__star.mesh == None:
+            raise ValueError('Mesh object needs to be created first.')
+        else:
+            self._bb_files()
+            self._structure_files()
+
+
+    @property 
+    def default_units(self):
+        """
+        Default units used by the structure arrays.
+
+        Default units throughout the code should not be edited because they strongly
+        affect the radiative transfer computations.
+
+        Returns
+        -------
+        dict
+            A dictionary of attributes with assigned default (astropy) units.
+        """
+        return {'rho': u.M_sun/u.R_sun**3, 'T': u.K}

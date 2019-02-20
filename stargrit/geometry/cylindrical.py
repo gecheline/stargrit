@@ -11,6 +11,10 @@ class CylindricalMesh(object):
     def set_geometry_attributes(self, **kwargs):
         raise NotImplementedError
 
+    @property 
+    def default_units(self):
+        return {'rs': u.R_sun, 'normals': u.dimensionless}
+
 
 class ContactBinaryCylindricalMesh(CylindricalMesh):
     # TODO: call the relevant potential and radius computation 

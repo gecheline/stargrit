@@ -52,7 +52,7 @@ class ContactBinary(Object):
                                     structure=structure, atmosphere=atmosphere, **kwargs)
 
 
-    def set_object_attributes(self, **kwargs):
+    def _set_object_attributes(self, **kwargs):
         """
         Adds parameters associated with object type.
 
@@ -125,16 +125,27 @@ class ContactBinary(Object):
         return roche.ff_to_pot(self.ff,self.q)
         
 
+    @property
     def implemented_geometries(self):
         """Returns implemented geometries associated with the object."""
         return ['spherical']
 
 
+    @property
     def implemented_structures(self):
         """Returns implemented structure models associated with the object."""
         return ['polytropes:diffrot']
 
     
+    @property
+    def implemented_atmospheres(self):
+        """
+        Returns implemented atmosphere models associated with the object.
+        """
+        return ['blackbody:gray', 'blackbody:monochromatic']
+
+
+    @property
     def default_units(self):
         """
         Default units used by the object attributes.

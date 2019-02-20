@@ -28,19 +28,32 @@ def DiffRotRoche(r, bs):
 
 
 def dDiffRotRochedx(r, bs):
-    return r[0] / (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5 + r[0] * (
+    if r.shape == (3,):
+        return r[0] / (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5 + r[0] * (
         bs[0] + 0.5 * bs[1] * (r[0] ** 2 + r[1] ** 2) + 1. / 3. * bs[2] * (r[0] ** 2 + r[1] ** 2) ** 2) + 0.5 * r[
         0] * (r[0] ** 2 +r[1] ** 2) * (bs[1] + 4. / 3. * bs[2] * (r[0] ** 2 + r[1] ** 2))
+    else:
+        return r[:,0] / (r[:,0] ** 2 + r[:,1] ** 2 + r[:,2] ** 2) ** 0.5 + r[:,0] * (
+        bs[0] + 0.5 * bs[1] * (r[:,0] ** 2 + r[:,1] ** 2) + 1. / 3. * bs[2] * (r[:,0] ** 2 + r[:,1] ** 2) ** 2) + 0.5 * r[
+        0] * (r[:,0] ** 2 +r[:,1] ** 2) * (bs[1] + 4. / 3. * bs[2] * (r[:,0] ** 2 + r[:,1] ** 2))
 
 
 def dDiffRotRochedy(r, bs):
-    return r[1] / (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5 + r[1] * (
+    if r.shape==(3,):
+        return r[1] / (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5 + r[1] * (
         bs[0] + 0.5 * bs[1] * (r[0] ** 2 + r[1] ** 2) + 1. / 3. * bs[2] * (r[0] ** 2 + r[1] ** 2) ** 2) + 0.5 * r[
         1] * (r[0] ** 2 + r[1] ** 2) * ( bs[1] + 4. / 3. * bs[2] * (r[0] ** 2 + r[1] ** 2))
+    else:
+        return r[:,1] / (r[:,0] ** 2 + r[:,1] ** 2 + r[:,2] ** 2) ** 0.5 + r[:,1] * (
+        bs[0] + 0.5 * bs[1] * (r[:,0] ** 2 + r[:,1] ** 2) + 1. / 3. * bs[2] * (r[:,0] ** 2 + r[:,1] ** 2) ** 2) + 0.5 * r[
+        1] * (r[:,0] ** 2 + r[:,1] ** 2) * ( bs[1] + 4. / 3. * bs[2] * (r[:,0] ** 2 + r[:,1] ** 2))
 
 
 def dDiffRotRochedz(r, bs):
-    return r[2] / (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5
+    if r.shape==(3,):
+        return r[2] / (r[0] ** 2 + r[1] ** 2 + r[2] ** 2) ** 0.5
+    else:
+        return r[:,2] / (r[:,0] ** 2 + r[:,1] ** 2 + r[:,2] ** 2) ** 0.5
 
 
 def radius_newton(pot, bs, theta):
@@ -66,3 +79,7 @@ def radius_newton(pot, bs, theta):
     r = newton(Roche, r_start, maxiter = 1000)
 
     return r
+
+
+def surface_gravity(r, bs):
+    return np.sqrt(dDiffRotRochedx(r, bs)**2+dDiffRotRochedy(r,bs)**2+dDiffRotRochedz(r,bs)**2)
