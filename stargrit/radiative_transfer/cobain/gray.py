@@ -155,32 +155,51 @@ class GrayRadiativeTransfer(RadiativeTransfer):
                     stepsize = stepsize / div
                 elif nbreak == self._N - 1:
                     subd = 'yes'
-                    N = self._N * 2
+                    self._N = self._N * 2
                 else:
                     subd = 'yes'
                     div = 1000. / nbreak
                     stepsize = stepsize / div
-                    N = self._N * 2
+                    self._N = self._N * 2
                 
                 nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, N)
 
             taus_j[dirarg], Is_j[dirarg] = tau, I
-            
-        return taus_j, Is_j
+
+        return Is_j, taus_j, self._compute_mean_intensity(Is_j), self._compute_flux(Is_j)
 
 
     def _compute_structure(self, points, dirarg, stepsize=False):
         raise NotImplementedError
 
     
-    def _compute_mean_intensity(self):
-        return None
+    def _compute_mean_intensity(self, I):
+        return np.sum(self.quadrature.weights * I)
 
-    def _compute_flux(self):
-        return None 
 
-    def _compute_temperature(self):
-        return None
+    def _compute_flux(self, I):
+
+        #BUG: this wouldn't hold near the neck of contacts because of the concavity
+        cond_out = self.quadrature.azimuthal_polar[:,1] <= np.pi/2
+        cond_in = self.quadrature.azimuthal_polar[:,1] > np.pi/2
+
+        ws = self.quadrature.weights
+        thetas = self.quadrature.azimuthal_polar[:,1]
+
+        return 4*np.pi*np.sum(ws[cond_out]*I[cond_out]*np.cos(thetas[cond_out])) - \
+            4*np.pi*np.sum(ws[cond_in]*I[cond_in]*np.cos(thetas[cond_in]))
+
+
+    def _compute_temperature(self, JF, type='J'):
+        
+        if JF == 'J':
+            return ((np.pi*JF/c.sigma_sb)**(0.25)).to(u.K)
+
+        elif JF == 'F':
+            return ((JF/c.sigma_sb)**(0.25)).to(u.K)
+
+        else:
+            raise ValueError('Type for temperature computation can only be J or F.')
 
 
 class DiffrotStarGrayRadiativeTransfer(GrayRadiativeTransfer, DiffrotStarRadiativeTransfer):

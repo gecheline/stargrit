@@ -108,6 +108,8 @@ class StarSphericalMesh(SphericalMesh):
 
 
     def _compute_point(self, arg):
+
+        logging.info('Computing mesh point %s' % arg)
         # arg is the argument of the point in mesh 
         # arg = k + (nphis)*j + (nthetas*npots)*i
         # i - positional argument of pot in pots array
@@ -141,32 +143,46 @@ class StarSphericalMesh(SphericalMesh):
                 for param in newparams:
                     setattr(self,param,kwargs[param])
 
-
-        # if parallel:
-        #     import multiprocessing as mp
-        #     np = mp.cpu_count() 
-
-        # else:
-
         meshsize = self.dims[0]*self.dims[1]*self.dims[2]
-        rs = np.zeros((meshsize, 3))
-        normals = np.zeros((meshsize, 3))
 
-        # implement multiprocessing as default mesh generation
-        n = 0
-        for i, pot in enumerate(self.coords['pots']):
-            logging.info('Building equipotential surface at pot=%s' % pot)
-            for j, theta in enumerate(self.coords['thetas']):
-                for k, phi in enumerate(self.coords['phis']):
-                    
-                    direction = np.array([np.sin(theta) * np.cos(phi), 
-                                        np.sin(theta) * np.sin(phi), 
-                                        np.cos(theta)])
+        if parallel:
+            import multiprocessing as mp
 
-                    rs[n] = self.__star.structure._compute_radius(pot=pot, direction=direction)
-                    normals[n] = self.__star.structure._compute_normal(rs[n])
+            #######################################
+            import sys
+            import types
+            #Difference between Python3 and 2
+            if sys.version_info[0] < 3:
+                import copy_reg as copyreg
+            else:
+                import copyreg
+            
+            def _pickle_method(m):
+                class_self = m.im_class if m.im_self is None else m.im_self
+                return getattr, (class_self, m.im_func.func_name)
+            
+            copyreg.pickle(types.MethodType, _pickle_method)
+            #######################################
 
-                    n+=1
+            numproc = mp.cpu_count() 
+            print 'Available processors: %s' % numproc
+            pool = mp.Pool(processes=numproc)
+
+            results = pool.map(self._compute_point, range(meshsize))
+            results.sort()
+
+            rsns = np.array([[result[1], result[2]] for result in results])
+            rs = rsns[:,0]
+            normals = rsns[:,1]
+
+
+        else:
+            rs = np.zeros((meshsize, 3))
+            normals = np.zeros((meshsize, 3))
+
+            for arg in range(meshsize):
+                arg, rs[arg], normals[arg] = self._compute_point(arg)
+
 
         self.rs = rs * self.__star.structure.scale
         self.ns = normals

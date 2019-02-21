@@ -365,3 +365,21 @@ class Object(object):
             except:
                 pass
         self.__directory = newdir
+
+
+    def _save(self,filename):
+        
+        import pickle
+
+        f = file(self.directory+filename, 'wb')
+        pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        f.close()
+
+
+    def _load(self, filename):
+        
+        import pickle
+
+        with file(filename, 'rb') as f:
+            return pickle.load(f)
+

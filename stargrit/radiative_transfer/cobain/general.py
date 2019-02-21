@@ -10,10 +10,11 @@ import astropy.units as u
 
 class RadiativeTransfer(object):
 
-    def __init__(self, starinstance, quadrature='Lebedev:15'):
+    def __init__(self, starinstance, quadrature='Lebedev:15', ray_discretization=5000):
 
         self.__star = starinstance
         self.quadrature = quadrature
+        self._N = ray_discretization
 
 
     @property
@@ -103,7 +104,6 @@ class RadiativeTransfer(object):
         return R
 
 
-
     @staticmethod
     def _rotate_direction_wrt_normal(Mc, coords, R):
 
@@ -180,71 +180,181 @@ class RadiativeTransfer(object):
         return NotImplementedError
 
 
-    def _compute_radiative_transfer(self, points, iter_n=1, ray_discretization=5000):
+    def _compute_temperature(self, JF, type='J'):
+        # handled by subclass
+        return NotImplementedError
+
+
+    def _initialize_I_tau_arrays(self, size):
+        
+        arr = np.zeros((size, self.quadrature.nI))
+
+        return arr, arr.copy()
+
+
+    def _initialize_J_F_arrays(self, size):
+        
+        arr = np.zeros(size)
+
+        return arr, arr.copy()
+
+
+    def _save_quad_array(self, arr, arrname, iter_n):
+
+        # based on object type, geometry and atmosphere: for spherical contact splitting required
+        # arr in shape (mesh, nI), needs to be (nI, npot, ntheta, nphi)
+
+        np.save(self.star.directory + '%s_%s.npy' % (arrname,iter_n), 
+                arr.T.reshape((self.quadrature.nI,)+tuple(self.star.mesh.dims)))
+
+
+    def _save_mean_array(self, arr, arrname, iter_n):
+
+        # based on object type, geometry and atmosphere: for spherical contact splitting required
+        # arr in shape (mesh), needs to be (npot, ntheta, nphi)
+
+        np.save(self.star.directory + '%s_%s.npy' % (arrname,iter_n), 
+                arr.reshape(self.star.mesh.dims))
+
+
+
+    def _compute_rt_point(self, indx):
+
+        logging.info('Computing intensities for point %i' % indx)
+        r = self.star.mesh.rs[indx]
+
+        if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
+            return (indx, np.zeros(len(self.quadrature.nI)), np.zeros(len(self.quadrature.nI)), 0., 0.)
+
+        else:
+            I, tau, J, F  = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
+            return (indx, I, tau, J, F)
+
+
+    def _compute_radiative_transfer(self, points=[], iter_n=1, ray_discretization=5000, parallel=True, autosave=1000):
         
         """
         Computes radiative transfer in a given set of mesh points.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
         """
 
-        self._N = ray_discretization
+        if len(points) == 0:
+            # assume it's the whole mesh, generate points array
+            points = range(len(self.star.mesh.rs))
+
         self._compute_interpolation_functions(iter_n=iter_n)
+
         # setup the arrays that the computation will output
-        I_new = np.zeros((len(points), self.quadrature.nI))
-        taus_new = np.zeros((len(points), self.quadrature.nI))
+        meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
+        I, tau = self._initialize_I_tau_arrays(meshsize)
+        J, F = self._initialize_J_F_arrays(meshsize)
+        T, chi = self._initialize_J_F_arrays(meshsize)
+        rho = np.load(self.star.directory + 'rho_0.npy')
 
-        for j, indx in enumerate(points):
-            # print 'Entering rt computation'
-            logging.info('Computing intensities for point %i of %i, index %i' % (j+1, len(points), indx))
-            r = self.star.mesh.rs[indx]
-            if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
-                pass
+
+        # autosave to file after a certain number of points are computed
+        for points_as in [points[i:i + autosave] for i in range(0, len(points), autosave)]:
+
+            if parallel:
+                import multiprocessing as mp
+
+                #######################################
+                import sys
+                import types
+                #Difference between Python3 and 2
+                if sys.version_info[0] < 3:
+                    import copy_reg as copyreg
+                else:
+                    import copyreg
+                
+                def _pickle_method(m):
+                    class_self = m.im_class if m.im_self is None else m.im_self
+                    return getattr, (class_self, m.im_func.func_name)
+                
+                copyreg.pickle(types.MethodType, _pickle_method)
+                #######################################
+
+                numproc = mp.cpu_count() 
+                print 'Available processors: %s' % numproc
+                pool = mp.Pool(processes=numproc)
+
+                results = pool.map(self._compute_rt_point, points_as)
+                # results = np.array(results)
+
+                # set the values of the computed points in array
+                for result in results:
+                    I[result[0]] = result[1]
+                    tau[result[0]] = result[2]
+                    J[result[0]] = result[3]
+                    F[result[0]] = result[4]
+
+
             else:
-                I_new[j], taus_new[j] = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
-  
-        return I_new, taus_new
+                for j, indx in enumerate(points_as):
+                    r = self.star.mesh.rs[indx]
+                    if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
+                        pass
+                    else:
+                        indx, I[indx], tau[indx], J[indx], F[indx] = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
+        
+
+            # save arrays
+            self._save_quad_array(I, 'I', iter_n)
+            self._save_quad_array(tau, 'tau', iter_n)
+
+            self._save_mean_array(J, 'J', iter_n)
+            self._save_mean_array(F, 'F', iter_n)
+
+            T_J = self._compute_temperature(J, type='J')
+            T_F = self._compute_temperature(F, type='F')
+            chi = self.star.atmosphere._compute_absorption_coefficient(rho,T_J)
+
+            self._save_mean_array(T_J, 'T', iter_n)
+            self._save_mean_array(T_F, 'T_F', iter_n)
+            self._save_mean_array(chi, 'chi', iter_n)
 
 
-    def _compute_rescale_factors(self, **kwargs):
+    def _compute_rescale_factors(self, parallel=True, **kwargs):
         
         dims = self.star.mesh.dims
-        points = random.sample(range(int(0.7*dims[0]*dims[1]*dims[2]), int(0.8*dims[0]*dims[1]*dims[2])), 5)
+        points = random.sample(range(int(0.8*dims[0]*dims[1]*dims[2]), int(0.9*dims[0]*dims[1]*dims[2])), 5)
+
+        self._compute_interpolation_functions(iter_n=1)
 
         rescale_factors = np.zeros(self.quadrature.nI)
-        taus, Is = self._compute_radiative_transfer(points, iter_n=1, **kwargs)
+        Is, taus = self._initialize_I_tau_arrays(len(points))
 
+        if parallel:
+            import multiprocessing as mp
+            numproc = np.min([mp.cpu_count(), len(points)])
+            pool = mp.Pool(processes=numproc)
+            results = pool.map(self._compute_rt_point, points)
+
+            for i,result in enumerate(results):
+                Is[i] = result[1]
+                taus[i] = result[2]
+
+        else:
+            for i, indx in enumerate(points):
+                (indx, Is[i], taus[i]) = self._compute_rt_point(indx)
+                print 'I from rf: ', Is[i]
+                print 'tau from rf:', taus[i]
+
+        meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
+        I0 = np.load(self.star.directory+'I_0.npy').reshape((self.quadrature.nI, meshsize))
+        
         for l in range(self.quadrature.nI):
-            Il = np.load(self.star.directory+'I_0_'+str(int(l))+'.npy').flatten()
-            # print 'rescale:', Il[points]/Is[:,l]
-            rescale_factors[l] = np.average(Il[points]/Is[:,l])
+            rescale_factors[l] = np.average((I0[l][points]-Is[:,l])/I0[l][points])
 
-        return rescale_factors
+        self.rescale_factors = rescale_factors
 
-    def _compute_iter(self, iter_n=1, **kwargs):
-        # needs to import mpi4py, detect the number of available processors
-        # open a file for storing, get the values returned by the processors,
-        # fill them up in the file and save it.
-        # each child process can open the file, assign the values to the correct
-        # positions and close it.
-        return None
 
-    def _compute_mean_intensity_iter(self, iter_n=1, **kwargs):
-        return None
 
-    def _compute_flux_iter(self, iter_n=1, **kwargs):
-        return None 
-
-    def _compute_chi_iter(self, iter_n=1, **kwargs):
-        return None 
-
-    def _compute_tau_iter(self, iter_n=1, **kwargs):
-        return None
-
-    def _compute_temperatures_iter(self, iter_n=1, **kwargs):
-        return None 
-
-    
-
-    
 class DiffrotStarRadiativeTransfer(RadiativeTransfer):
 
     def __init__(self, starinstance, **kwargs):
@@ -406,4 +516,22 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
             thetas_grid[thetas_grid > np.pi/2] = self._rot_theta(thetas_grid[thetas_grid > np.pi/2])
 
             return xnorms_grid, thetas_grid
+
+
+    ################TODO: UPDATE THESE ONCE SPHERICAL CONTACT IMPLEMENTED!!!!
+    def _save_array(self, arr, arrname, iter_n):
+
+        # based on object type, geometry and atmosphere: for spherical contact splitting required
+        # arr in shape (mesh, nI), needs to be (nI, npot, ntheta, nphi)
+        if isinstance(self.star.mesh, ContactBinarySphericalMesh):
+
+            np.save(self.star.directory + '%s_%s.npy' % (arrname,iter_n), 
+                    arr.T.reshape((self.quadrature.nI,)+tuple(self.star.mesh.dims)))
+
+
+    def _load_array(self, arrname, iter_n):
+        # based on object type, geometry and atmosphere: for spherical contact merging required
+        meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
+        return np.load(self.star.directory + '%s_%s.npy' ).reshape((self.quadrature.nI,)+(meshsize,)).T
+
             

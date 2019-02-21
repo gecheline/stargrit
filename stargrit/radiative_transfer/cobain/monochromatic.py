@@ -7,6 +7,29 @@ from stargrit.geometry.cylindrical import CylindricalMesh
 
 class MonochromaticRadiativeTransfer(RadiativeTransfer):
 
+    
+    def _initialize_I_tau_arrays(self):
+
+        meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
+        arr = np.zeros((meshsize, len(self.star.atmosphere.wavelenghts), self.quadrature.nI))
+
+        return arr, arr
+
+
+    def _save_array(self, arr, arrname, iter_n):
+
+        # based on object type, geometry and atmosphere: for spherical contact splitting required
+        # arr in shape (mesh, nI), needs to be (nI, npot, ntheta, nphi)
+
+        np.save(self.star.directory + '%s_%s.npy' % (arrname,iter_n), 
+                arr.T.reshape((self.quadrature.nI,)+tuple(self.star.mesh.dims)+tuple(len(self.star.atmosphere.wavelenghts))))
+
+
+    def _load_array(self, arrname, iter_n):
+        # based on object type, geometry and atmosphere: for spherical contact merging required
+        meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
+        return np.load(self.star.directory + '%s_%s.npy' ).reshape((self.quadrature.nI,)+(meshsize,)).T
+
 
     def _mesh_interpolation_functions(self, component='', iter_n=1):
 
@@ -210,7 +233,7 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
             
             nbreak, taus, I = self._intensity_integral(Mc, dirarg, stepsize, **kwargs)
 
-        return taus, I
+        return I, taus
 
 
     def _compute_structure(self, points, dirarg, stepsize=False):

@@ -86,7 +86,6 @@ class GrayBlackbody(object):
         opacs = np.zeros(len(Ts))*u.m**2/u.kg  
         opacs[(Ts>0) & (rhos>0)] = interpolate.opacities(Ts[(Ts>0) & (rhos>0)].value, rhos[(Ts>0) & (rhos>0)].to('g/cm3').value)*u.m**2/u.kg 
         # this opac is in m^2/kg
-        print opacs*rhos
         return (opacs * rhos).to(self.default_units['chi'])
 
 
