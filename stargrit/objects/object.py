@@ -375,8 +375,8 @@ class Object(object):
         pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         f.close()
 
-
-    def _load(self, filename):
+    @staticmethod
+    def _load(filename):
         
         import pickle
 

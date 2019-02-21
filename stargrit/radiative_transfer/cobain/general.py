@@ -297,10 +297,11 @@ class RadiativeTransfer(object):
             else:
                 for j, indx in enumerate(points_as):
                     r = self.star.mesh.rs[indx]
+                    print r
                     if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
                         pass
                     else:
-                        indx, I[indx], tau[indx], J[indx], F[indx] = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
+                        (indx, I[indx], tau[indx], J[indx], F[indx]) = self._compute_rt_point(indx)
         
 
             # save arrays
@@ -310,8 +311,8 @@ class RadiativeTransfer(object):
             self._save_mean_array(J, 'J', iter_n)
             self._save_mean_array(F, 'F', iter_n)
 
-            T_J = self._compute_temperature(J, type='J')
-            T_F = self._compute_temperature(F, type='F')
+            T_J = self._compute_temperature(J, ttype='J')
+            T_F = self._compute_temperature(F, ttype='F')
             chi = self.star.atmosphere._compute_absorption_coefficient(rho,T_J)
 
             self._save_mean_array(T_J, 'T', iter_n)

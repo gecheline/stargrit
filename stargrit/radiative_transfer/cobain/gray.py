@@ -73,7 +73,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         chis, Ss, Is = self._compute_structure(points=(rs/self.star.structure.scale), 
         dirarg=dirarg, stepsize=False)
-                                        
+                          
         return self._intensity_integral(paths,chis,Ss,Is,N)
 
 
@@ -81,7 +81,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         #TODO: implement gray vs monochromatic, handle limits in lambda? - in radiative equlibrium
         chis_sp = spint.UnivariateSpline(paths, chis, k=spline_order, s=0)
-        taus = np.array([chis_sp.integral(paths[0].value, paths[i].value) for i in range(self._N)])
+        taus = np.array([chis_sp.integral(paths[0].value, paths[i].value) for i in range(N)])
         Ss_exp = Ss * np.exp((-1.)*taus)
 
         if test:
@@ -117,7 +117,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             if len(taus_u) > 1:
                 Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
                 I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
-                # print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
+                print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
             else:
                 I = 0.0
 
@@ -139,9 +139,9 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         taus_j = np.zeros(self.quadrature.nI)
 
         for dirarg in range(self.quadrature.nI):
-
             coords = self.quadrature.azimuthal_polar[dirarg]
             ndir = self._rotate_direction_wrt_normal(Mc=Mc, coords=coords, R=R)
+
             stepsize = self._adjust_stepsize(Mc, ndir, dirarg)
             
             nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, self._N)
@@ -155,13 +155,13 @@ class GrayRadiativeTransfer(RadiativeTransfer):
                     stepsize = stepsize / div
                 elif nbreak == self._N - 1:
                     subd = 'yes'
-                    self._N = self._N * 2
+                    N = self._N * 2
                 else:
                     subd = 'yes'
                     div = 1000. / nbreak
                     stepsize = stepsize / div
-                    self._N = self._N * 2
-                
+                    N = self._N * 2
+
                 nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, N)
 
             taus_j[dirarg], Is_j[dirarg] = tau, I
@@ -190,13 +190,13 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             4*np.pi*np.sum(ws[cond_in]*I[cond_in]*np.cos(thetas[cond_in]))
 
 
-    def _compute_temperature(self, JF, type='J'):
+    def _compute_temperature(self, JF, ttype='J'):
         
-        if JF == 'J':
-            return ((np.pi*JF/c.sigma_sb)**(0.25)).to(u.K)
+        if ttype == 'J':
+            return ((np.pi*JF/c.sigma_sb)**(0.25))#.to(u.K)
 
-        elif JF == 'F':
-            return ((JF/c.sigma_sb)**(0.25)).to(u.K)
+        elif ttype == 'F':
+            return ((JF/c.sigma_sb)**(0.25))#.to(u.K)
 
         else:
             raise ValueError('Type for temperature computation can only be J or F.')
