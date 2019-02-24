@@ -387,6 +387,9 @@ class DiffrotPolytrope(object):
         Ts_bb = self.le['Tc']*theta_pots_bb
         rhos_bb = self.le['rhoc'] * theta_pots_bb ** self.n
 
+        rhos_bb[0] = 0.
+        Ts_bb[0] = 0.
+
         bb_file = np.array([pots_bb, Ts_bb, rhos_bb]).T
         np.save(self.__star.directory+'potTrho_bb', bb_file)
 
@@ -409,6 +412,10 @@ class DiffrotPolytrope(object):
 
         Ts_pots = self.le['Tc'] * theta_pots
         rhos_pots = self.le['rhoc'] * theta_pots ** self.n
+
+        Ts_pots[0] = 0. 
+        rhos_pots[0] = 0.
+        
         pots_inds = points//(mesh.dims[1]*mesh.dims[2])
         
         np.save(self.__star.directory+'T_0', Ts_pots[pots_inds].value.reshape(mesh.dims))

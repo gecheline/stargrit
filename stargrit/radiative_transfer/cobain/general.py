@@ -180,7 +180,7 @@ class RadiativeTransfer(object):
         return NotImplementedError
 
 
-    def _compute_temperature(self, JF, type='J'):
+    def _compute_temperature(self, JF, ttype='J'):
         # handled by subclass
         return NotImplementedError
 
@@ -222,9 +222,10 @@ class RadiativeTransfer(object):
 
         logging.info('Computing intensities for point %i' % indx)
         r = self.star.mesh.rs[indx]
+        pot0size = self.star.mesh.dims[1]*self.star.mesh.dims[2]
 
-        if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
-            return (indx, np.zeros(len(self.quadrature.nI)), np.zeros(len(self.quadrature.nI)), 0., 0.)
+        if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.) or indx < pot0size:
+            return (indx, np.zeros(self.quadrature.nI), np.zeros(self.quadrature.nI), 0., 0.)
 
         else:
             I, tau, J, F  = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
@@ -254,7 +255,7 @@ class RadiativeTransfer(object):
         I, tau = self._initialize_I_tau_arrays(meshsize)
         J, F = self._initialize_J_F_arrays(meshsize)
         T, chi = self._initialize_J_F_arrays(meshsize)
-        rho = np.load(self.star.directory + 'rho_0.npy')
+        rho = np.load(self.star.directory + 'rho_0.npy').flatten()*self.star.structure.default_units['rho']
 
 
         # autosave to file after a certain number of points are computed
@@ -315,9 +316,9 @@ class RadiativeTransfer(object):
             T_F = self._compute_temperature(F, ttype='F')
             chi = self.star.atmosphere._compute_absorption_coefficient(rho,T_J)
 
-            self._save_mean_array(T_J, 'T', iter_n)
-            self._save_mean_array(T_F, 'T_F', iter_n)
-            self._save_mean_array(chi, 'chi', iter_n)
+            self._save_mean_array(T_J.value, 'T', iter_n)
+            self._save_mean_array(T_F.value, 'T_F', iter_n)
+            self._save_mean_array(chi.value, 'chi', iter_n)
 
 
     def _compute_rescale_factors(self, parallel=True, **kwargs):
@@ -366,9 +367,9 @@ class DiffrotStarRadiativeTransfer(RadiativeTransfer):
     def _compute_potentials(self, points, bbT, pot_range_grid):
         
         pots = np.zeros(len(points))
-        # center = np.all(points == 0., axis=1)
-        # pots[center] = bbT[:,0].max()
-        pots = potentials.diffrot.DiffRotRoche(points.value, self.star.structure.bs)
+        center = np.all(points == 0., axis=1)
+        pots[center] = 1e300
+        pots[~center] = potentials.diffrot.DiffRotRoche(points.value, self.star.structure.bs)
         pots[(np.round(pots, 8) >= np.round(pot_range_grid[0], 8)) & (pots < pot_range_grid[0])] = pot_range_grid[0]
         
         return pots
@@ -401,11 +402,11 @@ class ContactBinaryRadiativeTransfer(RadiativeTransfer):
     def _compute_potentials(self, points, q, bbT1, bbT2, pot_range_grid):
 
         pots = np.zeros(len(points))
-        # center1 = np.all(points == 0., axis=1)
-        # center2 = (points[:, 0] == 1.) & (points[:, 1] == 0.) & (points[:, 2] == 0.)
-        pots = potentials.roche.BinaryRoche_cartesian(points/self.star.structure.scale, q)
-        # pots[center1] = bbT1[:,0].max()
-        # pots[center2] = bbT2[:,0].max()
+        center1 = np.all(points == 0., axis=1)
+        center2 = (points[:, 0] == 1.) & (points[:, 1] == 0.) & (points[:, 2] == 0.)
+        pots[(~center1)&(~center2)] = potentials.roche.BinaryRoche_cartesian(points/self.star.structure.scale, q)
+        pots[center1] = 1e300
+        pots[center2] = 1e300
         pots[(np.round(pots, 8) >= np.round(pot_range_grid[0], 8)) & (pots < pot_range_grid[0])] = pot_range_grid[0]
         
         return pots

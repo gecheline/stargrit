@@ -117,7 +117,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             if len(taus_u) > 1:
                 Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
                 I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
-                print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
+                # print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
             else:
                 I = 0.0
 
@@ -186,17 +186,16 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         ws = self.quadrature.weights
         thetas = self.quadrature.azimuthal_polar[:,1]
 
-        return 4*np.pi*np.sum(ws[cond_out]*I[cond_out]*np.cos(thetas[cond_out])) - \
-            4*np.pi*np.sum(ws[cond_in]*I[cond_in]*np.cos(thetas[cond_in]))
+        return 2*np.pi*(np.sum(ws[cond_out]*I[cond_out]*np.cos(thetas[cond_out])) - np.sum(ws[cond_in]*I[cond_in]*np.cos(thetas[cond_in])))
 
 
     def _compute_temperature(self, JF, ttype='J'):
         
         if ttype == 'J':
-            return ((np.pi*JF/c.sigma_sb)**(0.25))#.to(u.K)
+            return ((np.pi*JF*self.star.atmosphere.default_units['S']/c.sigma_sb)**(0.25)).to(u.K)
 
         elif ttype == 'F':
-            return ((JF/c.sigma_sb)**(0.25))#.to(u.K)
+            return ((JF*self.star.atmosphere.default_units['S']/c.sigma_sb)**(0.25)).to(u.K)
 
         else:
             raise ValueError('Type for temperature computation can only be J or F.')
