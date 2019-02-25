@@ -7,6 +7,7 @@ from stargrit.geometry.spherical import ContactBinarySphericalMesh
 import logging
 import random
 import astropy.units as u
+import sys
 
 class RadiativeTransfer(object):
 
@@ -262,23 +263,22 @@ class RadiativeTransfer(object):
         for points_as in [points[i:i + autosave] for i in range(0, len(points), autosave)]:
 
             if parallel:
-                import multiprocessing as mp
-
-                #######################################
-                import sys
-                import types
-                #Difference between Python3 and 2
-                if sys.version_info[0] < 3:
-                    import copy_reg as copyreg
-                else:
-                    import copyreg
-                
-                def _pickle_method(m):
-                    class_self = m.im_class if m.im_self is None else m.im_self
-                    return getattr, (class_self, m.im_func.func_name)
-                
-                copyreg.pickle(types.MethodType, _pickle_method)
-                #######################################
+                if 'multiprocessing'  not in sys.modules:
+                    import multiprocessing as mp
+                    #######################################
+                    import types
+                    #Difference between Python3 and 2
+                    if sys.version_info[0] < 3:
+                        import copy_reg as copyreg
+                    else:
+                        import copyreg
+                    
+                    def _pickle_method(m):
+                        class_self = m.im_class if m.im_self is None else m.im_self
+                        return getattr, (class_self, m.im_func.func_name)
+                    
+                    copyreg.pickle(types.MethodType, _pickle_method)
+                    #######################################
 
                 numproc = mp.cpu_count() 
                 print 'Available processors: %s' % numproc
@@ -293,6 +293,9 @@ class RadiativeTransfer(object):
                     tau[result[0]] = result[2]
                     J[result[0]] = result[3]
                     F[result[0]] = result[4]
+
+                pool.close()
+                pool.join()
 
 
             else:
