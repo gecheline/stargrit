@@ -186,18 +186,36 @@ class RadiativeTransfer(object):
         return NotImplementedError
 
 
-    def _initialize_I_tau_arrays(self, size):
+    def _initialize_I_tau_arrays(self, size, iter_n):
+
+        import os.path
+
+        if os.path.isfile(self.star.directory+'I_%s.npy' % iter_n):
+            I = np.load(self.star.directory+'I_%s.npy' % iter_n)
+            tau = np.load(self.star.directory+'tau_%s.npy' % iter_n)
+
+            return I, tau
+        else:
+            arr = np.zeros((size, self.quadrature.nI))
+
+            return arr, arr.copy()
+
+
+    def _initialize_J_F_T_chi_arrays(self, size, iter_n):
         
-        arr = np.zeros((size, self.quadrature.nI))
-
-        return arr, arr.copy()
-
-
-    def _initialize_J_F_arrays(self, size):
+        import os.path
         
-        arr = np.zeros(size)
+        if os.path.isfile(self.star.directory+'J_%s.npy' % iter_n):
+            J = np.load(self.star.directory+'J_%s.npy' % iter_n)
+            F = np.load(self.star.directory+'F_%s.npy' % iter_n)
+            T = np.load(self.star.directory+'T_%s.npy' % iter_n)
+            chi = np.load(self.star.directory+'chi_%s.npy' % iter_n)
 
-        return arr, arr.copy()
+            return J, F, T, chi
+        else:
+            arr = np.zeros(size)
+
+            return arr, arr.copy(), arr.copy(), arr.copy()
 
 
     def _save_quad_array(self, arr, arrname, iter_n):
@@ -253,32 +271,30 @@ class RadiativeTransfer(object):
 
         # setup the arrays that the computation will output
         meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
-        I, tau = self._initialize_I_tau_arrays(meshsize)
-        J, F = self._initialize_J_F_arrays(meshsize)
-        T, chi = self._initialize_J_F_arrays(meshsize)
+        I, tau = self._initialize_I_tau_arrays(meshsize, iter_n)
+        J, F, T, chi = self._initialize_J_F_T_chi_arrays(meshsize, iter_n)
         rho = np.load(self.star.directory + 'rho_0.npy').flatten()*self.star.structure.default_units['rho']
-
 
         # autosave to file after a certain number of points are computed
         for points_as in [points[i:i + autosave] for i in range(0, len(points), autosave)]:
 
             if parallel:
-                if 'multiprocessing'  not in sys.modules:
-                    import multiprocessing as mp
-                    #######################################
-                    import types
-                    #Difference between Python3 and 2
-                    if sys.version_info[0] < 3:
-                        import copy_reg as copyreg
-                    else:
-                        import copyreg
-                    
-                    def _pickle_method(m):
-                        class_self = m.im_class if m.im_self is None else m.im_self
-                        return getattr, (class_self, m.im_func.func_name)
-                    
-                    copyreg.pickle(types.MethodType, _pickle_method)
-                    #######################################
+                # if 'multiprocessing' not in sys.modules:
+                import multiprocessing as mp
+                #######################################
+                import types
+                #Difference between Python3 and 2
+                if sys.version_info[0] < 3:
+                    import copy_reg as copyreg
+                else:
+                    import copyreg
+                
+                def _pickle_method(m):
+                    class_self = m.im_class if m.im_self is None else m.im_self
+                    return getattr, (class_self, m.im_func.func_name)
+                
+                copyreg.pickle(types.MethodType, _pickle_method)
+                #######################################
 
                 numproc = mp.cpu_count() 
                 print 'Available processors: %s' % numproc
@@ -313,6 +329,8 @@ class RadiativeTransfer(object):
             self._save_quad_array(tau, 'tau', iter_n)
 
             self._save_mean_array(J, 'J', iter_n)
+            # only for gray testing
+            self._save_mean_array(J, 'S', iter_n)
             self._save_mean_array(F, 'F', iter_n)
 
             T_J = self._compute_temperature(J, ttype='J')
