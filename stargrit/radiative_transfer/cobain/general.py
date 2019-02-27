@@ -191,8 +191,10 @@ class RadiativeTransfer(object):
         import os.path
 
         if os.path.isfile(self.star.directory+'I_%s.npy' % iter_n):
-            I = np.load(self.star.directory+'I_%s.npy' % iter_n)
-            tau = np.load(self.star.directory+'tau_%s.npy' % iter_n)
+            meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
+            
+            I = np.load(self.star.directory+'I_%s.npy' % iter_n).T.reshape((meshsize, self.quadrature.nI))
+            tau = np.load(self.star.directory+'tau_%s.npy' % iter_n).T.reshape((meshsize, self.quadrature.nI))
 
             return I, tau
         else:
@@ -206,10 +208,10 @@ class RadiativeTransfer(object):
         import os.path
         
         if os.path.isfile(self.star.directory+'J_%s.npy' % iter_n):
-            J = np.load(self.star.directory+'J_%s.npy' % iter_n)
-            F = np.load(self.star.directory+'F_%s.npy' % iter_n)
-            T = np.load(self.star.directory+'T_%s.npy' % iter_n)
-            chi = np.load(self.star.directory+'chi_%s.npy' % iter_n)
+            J = np.load(self.star.directory+'J_%s.npy' % iter_n).flatten()
+            F = np.load(self.star.directory+'F_%s.npy' % iter_n).flatten()
+            T = np.load(self.star.directory+'T_%s.npy' % iter_n).flatten()
+            chi = np.load(self.star.directory+'chi_%s.npy' % iter_n).flatten()
 
             return J, F, T, chi
         else:
@@ -350,7 +352,7 @@ class RadiativeTransfer(object):
         self._compute_interpolation_functions(iter_n=1)
 
         rescale_factors = np.zeros(self.quadrature.nI)
-        Is, taus = self._initialize_I_tau_arrays(len(points))
+        Is, taus = self._initialize_I_tau_arrays(len(points), 1)
 
         if parallel:
             import multiprocessing as mp
