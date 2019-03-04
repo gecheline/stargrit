@@ -4,6 +4,7 @@ import quadpy.sphere as quadsph
 import scipy.interpolate as spint
 from stargrit.structure import potentials
 from stargrit.geometry.spherical import ContactBinarySphericalMesh
+from stargrit.radiative_transfer.quadrature import *
 import logging
 import random
 import astropy.units as u
@@ -30,24 +31,38 @@ class RadiativeTransfer(object):
 
     @quadrature.setter 
     def quadrature(self, value):
+        
+        if 'Lebedev' in value or 'lebedev' in value:
+            try:
+                quadrature, degree = value.split(':')
+            except:
+                logging.info('Assuming value %s is quadrature type to be used with default degree=15.' % value)
+                logging.info('To adjust both quadrature type and degree, provide in format quadrature:degree.')
 
-        try:
-            quadrature, degree = value.split(':')
-        except:
-            logging.info('Assuming value %s is quadrature type to be used with default degree=15.' % value)
-            logging.info('To adjust both quadrature type and degree, provide in format quadrature:degree.')
+                quadrature = value 
+                degree = '15'
 
-            quadrature = value 
-            degree = '15'
-
-        if hasattr(quadsph, quadrature.title()):
-            quadfunc = getattr(quadsph, quadrature.title())
-            self.__quadrature = quadfunc(str(degree))
-            self.__quadrature.nI = len(self.__quadrature.weights)
+            self.__quadrature = lebedev.Lebedev(degree)
             # thetas and phis are in quadrature.azimuthal_polar ([:,0] is phi, [:,1] is theta) 
 
+        elif 'Gauss' in value or 'gauss' in value:
+            try:
+                quadrature, degree = value.split(':')
+            except:
+                logging.info('Assuming default degrees Ntheta=10 Nphi=20' % value)
+                logging.info('To adjust both quadrature type and degree, provide in format quadrature:ntheta,nphi.')
+
+                quadrature = value 
+                degree = '10,20'
+            
+            ntheta, nphi = degree.split(',')
+            # convert strings to integers
+            ntheta, nphi = int(ntheta), int(nphi)
+            
+            self.__quadrature = gauss_legendre.Gauss_Legendre(ntheta=ntheta, nphi=nphi)
+
         else:
-            raise ValueError('Quadrature %s not supported by quadpy' % value.title())
+            raise ValueError('Quadrature %s not supported for RT' % value.title())
 
 
     @staticmethod
@@ -246,10 +261,12 @@ class RadiativeTransfer(object):
         pot0size = self.star.mesh.dims[1]*self.star.mesh.dims[2]
 
         if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.) or indx < pot0size:
+            print indx, 'Skipping'
             return (indx, np.zeros(self.quadrature.nI), np.zeros(self.quadrature.nI), 0., 0.)
 
         else:
             I, tau, J, F  = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
+            print indx, I, tau, J, F
             return (indx, I, tau, J, F)
 
 

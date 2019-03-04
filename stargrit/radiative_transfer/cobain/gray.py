@@ -7,7 +7,9 @@ from stargrit.radiative_transfer.cobain.general import RadiativeTransfer, Diffro
 from stargrit.geometry.spherical import SphericalMesh
 from stargrit.geometry.cylindrical import CylindricalMesh
 import astropy.units as u 
-import astropy.constants as c 
+import astropy.constants as c
+from stargrit.radiative_transfer.quadrature.lebedev import Lebedev 
+from stargrit.radiative_transfer.quadrature.gauss_legendre import Gauss_Legendre
 
 
 class GrayRadiativeTransfer(RadiativeTransfer):
@@ -117,7 +119,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             if len(taus_u) > 1:
                 Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
                 I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
-                # print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
+                print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
             else:
                 I = 0.0
 
@@ -140,6 +142,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         for dirarg in range(self.quadrature.nI):
             coords = self.quadrature.azimuthal_polar[dirarg]
+            print 'Computing direction %s, coords %s' % (dirarg,coords)
             ndir = self._rotate_direction_wrt_normal(Mc=Mc, coords=coords, R=R)
 
             stepsize = self._adjust_stepsize(Mc, ndir, dirarg)
@@ -174,19 +177,24 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
     
     def _compute_mean_intensity(self, I):
-        return np.sum(self.quadrature.weights * I)
+
+        if isinstance(self.quadrature, Lebedev):
+            return self.quadrature.integrate_over_4pi(I)
+        elif isinstance(self.quadrature, Gauss_Legendre):
+            return self.quadrature.integrate_over_4pi(I.reshape((len(self.quadrature.thetas),len(self.quadrature.phis))))
+        else:
+            raise TypeError('Unrecognized quadrature type %s' % self.quadrature)
 
 
     def _compute_flux(self, I):
 
         #BUG: this wouldn't hold near the neck of contacts because of the concavity
-        cond_out = self.quadrature.azimuthal_polar[:,1] <= np.pi/2
-        cond_in = self.quadrature.azimuthal_polar[:,1] > np.pi/2
-
-        ws = self.quadrature.weights
-        thetas = self.quadrature.azimuthal_polar[:,1]
-
-        return 2*np.pi*(np.sum(ws[cond_out]*I[cond_out]*np.cos(thetas[cond_out])) - np.sum(ws[cond_in]*I[cond_in]*np.cos(thetas[cond_in])))
+        if isinstance(self.quadrature, Lebedev):
+            return self.quadrature.integrate_outer_m_inner(I)
+        elif isinstance(self.quadrature, Gauss_Legendre):
+            return self.quadrature.integrate_outer_m_inner(I.reshape((len(self.thetas),len(self.phis))))
+        else:
+            raise TypeError('Unrecognized quadrature type %s' % self.quadrature)
 
 
     def _compute_temperature(self, JF, ttype='J'):
