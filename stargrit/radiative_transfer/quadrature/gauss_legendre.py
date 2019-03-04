@@ -29,15 +29,10 @@ class Gauss_Legendre(object):
 
         normal_dirs = np.array([[0.,0.,1.],[0.,0.,-1]])
         az_pol_norm = np.array([[0.,0.],[0.,np.pi]])
-        thetas_norm = np.array([0.,np.pi])
-        weights_norm = np.array([0.,0.])
 
         self.points = np.vstack((normal_dirs,self.points))
         self.azimuthal_polar = np.vstack((az_pol_norm, self.azimuthal_polar))
-        self.weights = np.hstack((weights_norm, self.weights))
-        self.thetas = np.hstack((thetas_norm, self.thetas))
         self.nI = len(self.points)
-        print 'nI:', self.nI
 
 
     def integrate_over_4pi(self, function):
@@ -59,7 +54,16 @@ class Gauss_Legendre(object):
 
 
     def integrate_outer_m_inner(self, function):
-        
+
+        ntheta, nphi = len(self.thetas), len(self.phis)
+        # check that function is of the right shape
+        if function.shape == (ntheta, nphi):
+            function = function.T 
+        elif function.shape == (nphi, ntheta):
+            function = function
+        else:
+            raise ValueError('Shape mismatch: function needs to have shape: (%s,%s)' % (ntheta,nphi))
+
         nphi = len(self.phis)
         cond_out = self.thetas <= np.pi/2
         cond_in = self.thetas > np.pi/2

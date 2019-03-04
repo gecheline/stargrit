@@ -15,7 +15,7 @@ class Lebedev(object):
 
     def integrate_over_4pi(self, function):
         if function.shape == self.weights.shape:
-            return np.sum(function*np.weights)
+            return np.sum(function*self.weights)
         else:
             raise ValueError('Shape mismatch: function needs to have shape %s' % self.weights.shape)
 

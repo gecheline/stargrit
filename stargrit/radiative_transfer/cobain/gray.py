@@ -181,7 +181,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         if isinstance(self.quadrature, Lebedev):
             return self.quadrature.integrate_over_4pi(I)
         elif isinstance(self.quadrature, Gauss_Legendre):
-            return self.quadrature.integrate_over_4pi(I.reshape((len(self.quadrature.thetas),len(self.quadrature.phis))))
+            return self.quadrature.integrate_over_4pi(I[2:].reshape((len(self.quadrature.thetas),len(self.quadrature.phis))))
         else:
             raise TypeError('Unrecognized quadrature type %s' % self.quadrature)
 
@@ -192,7 +192,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         if isinstance(self.quadrature, Lebedev):
             return self.quadrature.integrate_outer_m_inner(I)
         elif isinstance(self.quadrature, Gauss_Legendre):
-            return self.quadrature.integrate_outer_m_inner(I.reshape((len(self.thetas),len(self.phis))))
+            return self.quadrature.integrate_outer_m_inner(I[2:].reshape((len(self.quadrature.thetas),len(self.quadrature.phis))))
         else:
             raise TypeError('Unrecognized quadrature type %s' % self.quadrature)
 
