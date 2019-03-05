@@ -261,12 +261,12 @@ class RadiativeTransfer(object):
         pot0size = self.star.mesh.dims[1]*self.star.mesh.dims[2]
 
         if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.) or indx < pot0size:
-            print indx, 'Skipping'
+            # print indx, 'Skipping'
             return (indx, np.zeros(self.quadrature.nI), np.zeros(self.quadrature.nI), 0., 0.)
 
         else:
             I, tau, J, F  = self._compute_intensity(self.star.mesh.rs[indx], self.star.mesh.ns[indx])
-            print indx, I, tau, J, F
+            # print indx, I, tau, J, F
             return (indx, I, tau, J, F)
 
 
@@ -336,7 +336,7 @@ class RadiativeTransfer(object):
             else:
                 for j, indx in enumerate(points_as):
                     r = self.star.mesh.rs[indx]
-                    print r
+                    # print r
                     if np.all(r==0.) or (r[0]==1. and r[1]==0. and r[2]==0.):
                         pass
                     else:
@@ -344,6 +344,7 @@ class RadiativeTransfer(object):
         
 
             # save arrays
+            print 'Saving arrays...'
             self._save_quad_array(I, 'I', iter_n)
             self._save_quad_array(tau, 'tau', iter_n)
 
@@ -384,8 +385,8 @@ class RadiativeTransfer(object):
         else:
             for i, indx in enumerate(points):
                 (indx, Is[i], taus[i]) = self._compute_rt_point(indx)
-                print 'I from rf: ', Is[i]
-                print 'tau from rf:', taus[i]
+                # print 'I from rf: ', Is[i]
+                # print 'tau from rf:', taus[i]
 
         meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
         I0 = np.load(self.star.directory+'I_0.npy').reshape((self.quadrature.nI, meshsize))

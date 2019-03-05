@@ -119,7 +119,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             if len(taus_u) > 1:
                 Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
                 I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
-                print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
+                # print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
             else:
                 I = 0.0
 
@@ -142,7 +142,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         for dirarg in range(self.quadrature.nI):
             coords = self.quadrature.azimuthal_polar[dirarg]
-            print 'Computing direction %s, coords %s' % (dirarg,coords)
+            # print 'Computing direction %s, coords %s' % (dirarg,coords)
             ndir = self._rotate_direction_wrt_normal(Mc=Mc, coords=coords, R=R)
 
             stepsize = self._adjust_stepsize(Mc, ndir, dirarg)
