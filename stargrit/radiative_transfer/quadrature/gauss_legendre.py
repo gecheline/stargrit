@@ -50,7 +50,7 @@ class Gauss_Legendre(object):
         for i in range(nphi):
             f_theta[i] = np.sum(function[i]*self.weights)
 
-        return 1./(4*np.pi)*np.trapz(f_theta*np.sin(self.phis),self.phis)
+        return 1./(4*np.pi)*np.trapz(f_theta*np.abs(np.sin(self.phis)),self.phis)
 
 
     def integrate_outer_m_inner(self, function):
@@ -76,7 +76,7 @@ class Gauss_Legendre(object):
         for i in range(nphi):
             f_theta_in[i] = np.sum(function[i][cond_in]*self.weights[cond_in]*np.cos(self.thetas[cond_in]))
 
-        return np.abs(np.trapz(f_theta_out*np.sin(self.phis),self.phis))-np.abs(np.trapz(f_theta_in*np.sin(self.phis),self.phis))
+        return np.abs(np.trapz(f_theta_out*np.abs(np.sin(self.phis)),self.phis))-np.abs(np.trapz(f_theta_in*np.abs(np.sin(self.phis)),self.phis))
 
 
         
