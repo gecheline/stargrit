@@ -10,6 +10,8 @@ import astropy.units as u
 import astropy.constants as c
 from stargrit.radiative_transfer.quadrature.lebedev import Lebedev 
 from stargrit.radiative_transfer.quadrature.gauss_legendre import Gauss_Legendre
+from stargrit.radiative_transfer.ali import gray_ali
+import logging
 
 
 class GrayRadiativeTransfer(RadiativeTransfer):
@@ -30,19 +32,20 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         RGI = spint.RegularGridInterpolator
 
         chi = np.load(directory + 'chi%s_%i.npy' % (component, iter_n-1))
-        J = np.load(directory + 'S%s_%i.npy' % (component, iter_n-1))
+        # J = np.load(directory + 'J%s_%i.npy' % (component, iter_n-1))
+        S = np.load(directory+'S%s_%s.npy' % (component,iter_n-1))
 
         key1, key2, key3 = self.star.mesh.coords.keys()
 
         chi_interp = RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=chi)
-        J_interp = RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=J)
+        S_interp = RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=S)
 
         I_interp = []
         I = np.load(directory + 'I%s_%i.npy' % (component,iter_n-1))
         for i in range(self.quadrature.nI):
             I_interp.append(RGI(points=[mesh.coords[key1], mesh.coords[key2], mesh.coords[key3]], values=I[i]))
     
-        return chi_interp, J_interp, I_interp
+        return chi_interp, S_interp, I_interp
 
 
     def _adjust_stepsize(self, Mc, ndir, dirarg):
@@ -195,6 +198,22 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             return self.quadrature.integrate_outer_m_inner(I[2:].reshape((len(self.quadrature.thetas),len(self.quadrature.phis))))
         else:
             raise TypeError('Unrecognized quadrature type %s' % self.quadrature)
+
+    
+    def _compute_source_function(self, J, points, iter_n, component=''):
+
+        if self.conv_method == 'LI':
+            S = J 
+        
+        elif 'ALI' in self.conv_method:
+            S_previ = np.load(self.star.directory + 'S%s_%i.npy' % (component, iter_n-1)).flatten()[points]
+            try:
+                conv, mtype = self.conv_method.split(':')
+            except:
+                logging.info('Assuming ALI Lambda* type is diagonal')
+                mtype = 'diagonal'
+
+        return gray_ali.compute_S_step(J.flatten(), S_previ.flatten(), mtype=mtype)
 
 
     def _compute_temperature(self, JF, ttype='J'):

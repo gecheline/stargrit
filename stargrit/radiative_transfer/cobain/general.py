@@ -12,11 +12,12 @@ import sys
 
 class RadiativeTransfer(object):
 
-    def __init__(self, starinstance, quadrature='Lebedev:15', ray_discretization=5000):
+    def __init__(self, starinstance, quadrature='Lebedev:15', ray_discretization=5000, conv_method='ALI'):
 
         self.__star = starinstance
         self.quadrature = quadrature
         self._N = ray_discretization
+        self.conv_method = conv_method
 
 
     @property
@@ -63,6 +64,19 @@ class RadiativeTransfer(object):
 
         else:
             raise ValueError('Quadrature %s not supported for RT' % value.title())
+
+
+    @property
+    def conv_method(self):
+        return self.__conv_method 
+    
+
+    @conv_method.setter 
+    def conv_method(self, value):
+        if value in ['LI', 'ALI:diagonal', 'ALI:tridiagonal', 'ALI']:
+            self.__conv_method = value 
+        else:
+            raise ValueError('conv_method must be one of [LI, ALI, ALI:diagonal, ALI:tridiagonal]')
 
 
     @staticmethod
@@ -201,6 +215,11 @@ class RadiativeTransfer(object):
         return NotImplementedError
 
 
+    def _compute_source_function(self, J, points, iter_n):
+        # handled by subclass
+        return NotImplementedError
+
+
     def _initialize_I_tau_arrays(self, size, iter_n):
 
         import os.path
@@ -218,21 +237,22 @@ class RadiativeTransfer(object):
             return arr, arr.copy()
 
 
-    def _initialize_J_F_T_chi_arrays(self, size, iter_n):
+    def _initialize_J_S_F_T_chi_arrays(self, size, iter_n):
         
         import os.path
         
         if os.path.isfile(self.star.directory+'J_%s.npy' % iter_n):
             J = np.load(self.star.directory+'J_%s.npy' % iter_n).flatten()
+            S = np.load(self.star.directory+'S_%s.npy' % iter_n).flatten()
             F = np.load(self.star.directory+'F_%s.npy' % iter_n).flatten()
             T = np.load(self.star.directory+'T_%s.npy' % iter_n).flatten()
             chi = np.load(self.star.directory+'chi_%s.npy' % iter_n).flatten()
 
-            return J, F, T, chi
+            return J, S, F, T, chi
         else:
             arr = np.zeros(size)
 
-            return arr, arr.copy(), arr.copy(), arr.copy()
+            return arr, arr.copy(), arr.copy(), arr.copy(), arr.copy()
 
 
     def _save_quad_array(self, arr, arrname, iter_n):
@@ -291,7 +311,7 @@ class RadiativeTransfer(object):
         # setup the arrays that the computation will output
         meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
         I, tau = self._initialize_I_tau_arrays(meshsize, iter_n)
-        J, F, T, chi = self._initialize_J_F_T_chi_arrays(meshsize, iter_n)
+        J, S, F, T, chi = self._initialize_J_S_F_T_chi_arrays(meshsize, iter_n)
         rho = np.load(self.star.directory + 'rho_0.npy').flatten()*self.star.structure.default_units['rho']
 
         # autosave to file after a certain number of points are computed
@@ -349,9 +369,11 @@ class RadiativeTransfer(object):
             self._save_quad_array(tau, 'tau', iter_n)
 
             self._save_mean_array(J, 'J', iter_n)
-            # only for gray testing
-            self._save_mean_array(J, 'S', iter_n)
             self._save_mean_array(F, 'F', iter_n)
+
+            # at each autosave, compute S
+            S[points_as] = self._compute_source_function(J[points_as], points_as, iter_n)
+            self._save_mean_array(S, 'S', iter_n)
 
             T_J = self._compute_temperature(J, ttype='J')
             T_F = self._compute_temperature(F, ttype='F')
@@ -360,6 +382,7 @@ class RadiativeTransfer(object):
             self._save_mean_array(T_J.value, 'T', iter_n)
             self._save_mean_array(T_F.value, 'T_F', iter_n)
             self._save_mean_array(chi.value, 'chi', iter_n)
+            
 
 
     def _compute_rescale_factors(self, parallel=True, **kwargs):
