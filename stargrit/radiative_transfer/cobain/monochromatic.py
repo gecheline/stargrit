@@ -160,8 +160,8 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
 
     def _intensity_step(self, Mc, ndir, dirarg, stepsize, **kwargs):
         
-        rs = np.array([Mc - i * stepsize * ndir for i in range(self._N)])
-        paths = np.array([i * stepsize for i in range(self._N)])
+        rs = np.array([Mc - i * stepsize * ndir for i in range(self.ray_discretization)])
+        paths = np.array([i * stepsize for i in range(self.ray_discretization)])
 
         chis, Ss, Is = self._compute_structure(points=rs, dirarg=dirarg, stepsize=False, **kwargs)
                                         
@@ -173,14 +173,14 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
         #TODO: implement gray vs monochromatic, handle limits in lambda? - in radiative equlibrium
         
         chis_sp = spint.UnivariateSpline(paths, chis, k=spline_order, s=0)
-        taus = np.array([chis_sp.integral(paths[0], paths[i]) for i in range(self._N)])
+        taus = np.array([chis_sp.integral(paths[0], paths[i]) for i in range(self.ray_discretization)])
         Ss_exp = Ss * np.exp((-1.)*taus)
 
         Iszero = np.argwhere(Is == 0.0).flatten()
         Ssezero = np.argwhere(Ss_exp == 0.0).flatten()
 
         if Iszero.size == 0 and Ssezero.size == 0:
-            nbreak = self._N - 1
+            nbreak = self.ray_discretization - 1
         else:
             nbreak = np.min(np.hstack((Iszero, Ssezero)))
 
@@ -217,23 +217,37 @@ class MonochromaticRadiativeTransfer(RadiativeTransfer):
         
         Iinit = Is[nbreak]
         subd = 'no'
-        if (nbreak < 1000 and Iinit != 0.0) or nbreak == self._N-1:
+        if (nbreak < 1000 and Iinit != 0.0) or nbreak == self.ray_discretization-1:
             if (nbreak < 1000 and Iinit != 0.0):
                 subd = 'yes'
                 div = 1000. / nbreak
                 stepsize = stepsize / div
-            elif nbreak == self._N - 1:
+            elif nbreak == self.ray_discretization - 1:
                 subd = 'yes'
-                self._N = self._N * 2
+                self.ray_discretization = self.ray_discretization * 2
             else:
                 subd = 'yes'
                 div = 1000. / nbreak
                 stepsize = stepsize / div
-                self._N = self._N * 2
+                self.ray_discretization = self.ray_discretization * 2
             
             nbreak, taus, I = self._intensity_integral(Mc, dirarg, stepsize, **kwargs)
 
         return I, taus
+
+    # def _compute_source_function(self, J, points, iter_n, component=''):
+    #     if self.conv_method == 'LI':
+    #         S = self.star.atmosphere.eps *  
+        
+    #     elif 'ALI' in self.conv_method:
+    #         S_previ = np.load(self.star.directory + 'S%s_%i.npy' % (component, iter_n-1)).flatten()[points]
+    #         try:
+    #             conv, mtype = self.conv_method.split(':')
+    #         except:
+    #             logging.info('Assuming ALI Lambda* type is diagonal')
+    #             mtype = 'diagonal'
+
+    #     return monochromatic_ali.compute_S_step(J.flatten(), S_previ.flatten(), mtype=mtype)
 
 
     def _compute_structure(self, points, dirarg, stepsize=False):

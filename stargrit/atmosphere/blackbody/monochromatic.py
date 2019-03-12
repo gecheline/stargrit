@@ -51,6 +51,7 @@ class MonochromaticBlackbody(GrayBlackbody):
 
     @property
     def opactype(self):
+        '''Type for opacity: mean or monochromatic.'''
         return self.__opactype 
 
 
@@ -62,6 +63,7 @@ class MonochromaticBlackbody(GrayBlackbody):
 
     @property
     def wavelengths(self):
+        '''The range of wavelengths to compute in.'''
         return self.__wavelengths
 
 

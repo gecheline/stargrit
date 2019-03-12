@@ -48,11 +48,11 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         return chi_interp, S_interp, I_interp
 
 
-    def _adjust_stepsize(self, Mc, ndir, dirarg):
+    def _adjust_stepsize(self, Mc, ndir, dirarg, N):
 
         #TODO: implement monochromatic vs mean
 
-        exps = np.linspace(-10, -4, 1000)
+        exps = np.linspace(-10, -2, 1000)
         stepsizes = 10 ** exps * self.star.mesh.default_units['r']
 
         b = np.ones((len(stepsizes), 3)).T * stepsizes
@@ -64,11 +64,11 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         # compute stepsize
         taus = chis * stepsizes / 2.
 
-        diffs = np.abs(taus - 1.*taus.unit)
+        diffs = np.abs(taus - 1000.*taus.unit)
         stepsize_final = stepsizes[np.argmin(diffs)]
 
-        # print 'stepsize: ', stepsize_final
-        return stepsize_final / 2.
+        print 'stepsize: ', stepsize_final
+        return stepsize_final / N
 
 
     def _intensity_step(self, Mc, ndir, dirarg, stepsize, N):
@@ -122,7 +122,7 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             if len(taus_u) > 1:
                 Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
                 I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
-                # print 'I = %s, I0 = %s, Sint = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]))
+                print 'I = %s, I0 = %s, Sint = %s, tau = %s, steps = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]), taus[-1], N)
             else:
                 I = 0.0
 
@@ -145,30 +145,30 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         for dirarg in range(self.quadrature.nI):
             coords = self.quadrature.azimuthal_polar[dirarg]
-            # print 'Computing direction %s, coords %s' % (dirarg,coords)
+            print 'Computing direction %s, coords %s' % (dirarg,coords)
             ndir = self._rotate_direction_wrt_normal(Mc=Mc, coords=coords, R=R)
 
-            stepsize = self._adjust_stepsize(Mc, ndir, dirarg)
+            stepsize = self._adjust_stepsize(Mc, ndir, dirarg, self.ray_discretization)
             
-            nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, self._N)
+            nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, self.ray_discretization)
             
-            subd = 'no'
-            N = self._N
-            if (nbreak < 1000 and I0 != 0.0) or nbreak == self._N-1:
-                if (nbreak < 1000 and I0 != 0.0):
-                    subd = 'yes'
-                    div = 1000. / nbreak
-                    stepsize = stepsize / div
-                elif nbreak == self._N - 1:
-                    subd = 'yes'
-                    N = self._N * 2
-                else:
-                    subd = 'yes'
-                    div = 1000. / nbreak
-                    stepsize = stepsize / div
-                    N = self._N * 2
+            # subd = 'no'
+            # N = self.ray_discretization
+            # if (nbreak < N and I0 != 0.0) or nbreak == self.ray_discretization-1:
+            #     if (nbreak < N and I0 != 0.0):
+            #         subd = 'yes'
+            #         div = N / nbreak
+            #         stepsize = stepsize / div
+            #     elif nbreak == self.ray_discretization - 1:
+            #         subd = 'yes'
+            #         N = self.ray_discretization * 2
+            #     else:
+            #         subd = 'yes'
+            #         div = N / nbreak
+            #         stepsize = stepsize / div
+            #         N = self.ray_discretization * 2
 
-                nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, N)
+            #     nbreak, tau, I0, I = self._intensity_step(Mc, ndir, dirarg, stepsize, N)
 
             taus_j[dirarg], Is_j[dirarg] = tau, I
 
