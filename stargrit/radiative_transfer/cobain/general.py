@@ -16,7 +16,7 @@ class RadiativeTransfer(object):
 
         self.__star = starinstance
         self.quadrature = quadrature
-        self._N = ray_discretization
+        self.ray_discretization = ray_discretization
         self.conv_method = conv_method
 
 
@@ -28,6 +28,16 @@ class RadiativeTransfer(object):
     @property
     def quadrature(self):
         return self.__quadrature
+
+    
+    @property
+    def ray_discretization(self):
+        return self.__N 
+
+
+    @ray_discretization.setter 
+    def ray_discretization(self, value):
+        self.__N = value
 
 
     @quadrature.setter 
@@ -226,9 +236,9 @@ class RadiativeTransfer(object):
 
         if os.path.isfile(self.star.directory+'I_%s.npy' % iter_n):
             meshsize = self.star.mesh.dims[0]*self.star.mesh.dims[1]*self.star.mesh.dims[2]
-            
-            I = np.load(self.star.directory+'I_%s.npy' % iter_n).T.reshape((meshsize, self.quadrature.nI))
-            tau = np.load(self.star.directory+'tau_%s.npy' % iter_n).T.reshape((meshsize, self.quadrature.nI))
+
+            I = np.load(self.star.directory+'I_%s.npy' % iter_n).flatten().reshape((self.quadrature.nI, meshsize)).T
+            tau = np.load(self.star.directory+'tau_%s.npy' % iter_n).flatten().reshape((self.quadrature.nI, meshsize)).T
 
             return I, tau
         else:
@@ -289,8 +299,16 @@ class RadiativeTransfer(object):
             # print indx, I, tau, J, F
             return (indx, I, tau, J, F)
 
+    def _params(self):
+        """
+        Returns
+        -------
+        List of updateable parameters.
+        """
+        return [key for key in dir(self) if not key.startswith('_')]
 
-    def _compute_radiative_transfer(self, points=[], iter_n=1, ray_discretization=5000, parallel=True, autosave=1000):
+
+    def _compute(self, points=[], iter_n=1, parallel=True, autosave=1000, **kwargs):
         
         """
         Computes radiative transfer in a given set of mesh points.
@@ -301,6 +319,12 @@ class RadiativeTransfer(object):
         Returns
         -------
         """
+
+        if kwargs:
+            newparams = set(kwargs.keys()) & set(self._params())
+            if newparams:
+                for param in newparams:
+                    setattr(self,param,kwargs[param])
 
         if len(points) == 0:
             # assume it's the whole mesh, generate points array

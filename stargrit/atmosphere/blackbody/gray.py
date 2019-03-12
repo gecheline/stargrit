@@ -38,6 +38,7 @@ class GrayBlackbody(object):
             absorption coefficient (chis) and source function (Ss).
         """
         self.__star = starinstance 
+        self.eps = kwargs.get('eps', 1.0)
 
     @property
     def star(self):
@@ -66,9 +67,24 @@ class GrayBlackbody(object):
     def dims(self):
         return self.__star.mesh.dims
 
+
     @dims.setter
     def dims(self,value):
         self.__star.mesh.dims = value
+
+
+    @property 
+    def eps(self):
+        return self.__eps 
+
+
+    @eps.setter 
+    def eps(self, value):
+        '''The scattering coefficient of the source function: eps (blackbody), 1-eps (scattered)'''
+        if value >= 0.0 and value <= 1.0:
+            self.__eps = value 
+        else:
+            raise ValueError('Scattering coefficient eps must be in range [0,1].')
 
 
     def _load_structure(self, component=''):
