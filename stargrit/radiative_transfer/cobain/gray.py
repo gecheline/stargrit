@@ -212,8 +212,10 @@ class GrayRadiativeTransfer(RadiativeTransfer):
             except:
                 logging.info('Assuming ALI Lambda* type is diagonal')
                 mtype = 'diagonal'
+                
+            S = gray_ali.compute_S_step(J.flatten(), S_previ.flatten(), mtype=mtype)
 
-        return gray_ali.compute_S_step(J.flatten(), S_previ.flatten(), mtype=mtype)
+        return S
 
 
     def _compute_temperature(self, JF, ttype='J'):
