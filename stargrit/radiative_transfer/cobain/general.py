@@ -243,6 +243,8 @@ class RadiativeTransfer(object):
             return I, tau
         else:
             arr = np.zeros((size, self.quadrature.nI))
+            self._save_quad_array(arr.copy(), 'I', iter_n)
+            self._save_quad_array(arr.copy(), 'tau', iter_n)
 
             return arr, arr.copy()
 
@@ -261,6 +263,12 @@ class RadiativeTransfer(object):
             return J, S, F, T, chi
         else:
             arr = np.zeros(size)
+
+            self._save_mean_array(arr.copy(), 'J', iter_n)
+            self._save_mean_array(arr.copy(), 'F', iter_n)
+            self._save_mean_array(arr.copy(), 'T', iter_n)
+            self._save_mean_array(arr.copy(), 'T_F', iter_n)
+            self._save_mean_array(arr.copy(), 'chi', iter_n)
 
             return arr, arr.copy(), arr.copy(), arr.copy(), arr.copy()
 
