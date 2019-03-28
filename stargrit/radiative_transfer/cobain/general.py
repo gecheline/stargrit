@@ -291,7 +291,6 @@ class RadiativeTransfer(object):
                 arr.reshape(self.star.mesh.dims))
 
 
-
     def _compute_rt_point(self, indx):
 
         logging.info('Computing intensities for point %i' % indx)

@@ -109,31 +109,33 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         if Iszero.size == 0 and Ssezero.size == 0:
             nbreak = N - 1
+            return nbreak, taus[-1], Is[nbreak], 0.
+        
         else:
             nbreak = np.min(np.hstack((Iszero, Ssezero)))
 
-        if nbreak > 1:
-            taus = taus[:nbreak + 1]
-            Ss_exp = Ss_exp[:nbreak + 1]
-            Ss_exp[(Ss_exp == np.nan) | (Ss_exp == np.inf) | (Ss_exp == -np.nan) | (Ss_exp == -np.inf)] = 0.0
+            if nbreak > 1:
+                taus = taus[:nbreak + 1]
+                Ss_exp = Ss_exp[:nbreak + 1]
+                Ss_exp[(Ss_exp == np.nan) | (Ss_exp == np.inf) | (Ss_exp == -np.nan) | (Ss_exp == -np.inf)] = 0.0
 
-            taus_u, indices = np.unique(taus, return_index=True)
+                taus_u, indices = np.unique(taus, return_index=True)
 
-            if len(taus_u) > 1:
-                Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
-                I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
-                # print 'I = %s, I0 = %s, Sint = %s, tau = %s, steps = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]), taus[-1], N)
+                if len(taus_u) > 1:
+                    Sexp_sp = spint.UnivariateSpline(taus[indices], Ss_exp[indices], k=spline_order, s=0)
+                    I = Is[nbreak] * np.exp(-taus[-1]) + Sexp_sp.integral(taus[0], taus[-1])
+                    # print 'I = %s, I0 = %s, Sint = %s, tau = %s, steps = %s' % (I, Is[nbreak], Sexp_sp.integral(taus[0], taus[-1]), taus[-1], N)
+                else:
+                    I = 0.0
+
+                if np.isnan(I) or I < 0.:
+                    I = 0.0
+
             else:
+                taus = taus[:nbreak + 1]
                 I = 0.0
 
-            if np.isnan(I) or I < 0.:
-                I = 0.0
-
-        else:
-            taus = taus[:nbreak + 1]
-            I = 0.0
-
-        return nbreak, taus[-1], Is[nbreak], I
+            return nbreak, taus[-1], Is[nbreak], I
 
 
     def _compute_intensity(self, Mc, n):
