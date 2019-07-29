@@ -79,10 +79,10 @@ class GrayRadiativeTransfer(RadiativeTransfer):
         chis, Ss, Is = self._compute_structure(points=(rs/self.star.structure.scale), 
         dirarg=dirarg, stepsize=False)
                           
-        return self._intensity_integral(paths,chis,Ss,Is,N)
+        return self._intensity_integral(paths,chis,Ss,Is,N,dirarg)
 
 
-    def _intensity_integral(self, paths, chis, Ss, Is, N, spline_order=1, test=False):
+    def _intensity_integral(self, paths, chis, Ss, Is, N, dirarg, spline_order=1, test=False):
 
         #TODO: implement gray vs monochromatic, handle limits in lambda? - in radiative equlibrium
         chis_sp = spint.UnivariateSpline(paths, chis, k=spline_order, s=0)
@@ -109,8 +109,12 @@ class GrayRadiativeTransfer(RadiativeTransfer):
 
         if Iszero.size == 0 and Ssezero.size == 0:
             nbreak = N - 1
-            return nbreak, taus[-1], Is[nbreak], 0.
-        
+
+            if self.quadrature.thetas[dirarg] >= np.pi/2.:
+                return nbreak, taus[-1], Is[nbreak], 0.
+            else:
+                pass
+   
         else:
             nbreak = np.min(np.hstack((Iszero, Ssezero)))
 

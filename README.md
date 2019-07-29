@@ -1,6 +1,6 @@
 # STARGRIT
 
-STARGRIT (STellAR Generalized RadiatIve Transfer) is a radiative transfer code for computation of atmosphere tables of differentially rotating and contact binary stars. It supports spherical and cylindrical grids with initial blackbody (gray and monochromatic) atmospheres. The default radiative transfer method of STARGRIT is COBAIN (COntact Binary Atmospheres with INterpolation (arXiv:1804.08781)).
+STARGRIT (STellAR Generalized RadiatIve Transfer) is an in-development radiative transfer code for computation of atmosphere tables of differentially rotating and contact binary stars. It supports spherical and cylindrical grids with initial blackbody (gray and monochromatic) atmospheres. The default radiative transfer method of STARGRIT is COBAIN (COntact Binary Atmospheres with INterpolation (arXiv:1804.08781)).
 
 ## Getting Started
 
@@ -13,7 +13,7 @@ If the installation goes well, try importing to check for potential missing prer
 
 ### Prerequisites
 
-To run COBAIN properly, you will need to have numpy, scipy, astropy and quadpy installed on your machine. If you don't, install them via pip (or brew if on a Mac).
+To run STARGRIT, you will need to have numpy, scipy, astropy and quadpy installed on your machine. If you don't, install them via pip (or brew if on a Mac).
 
 
 ## Authors
